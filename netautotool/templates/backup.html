@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Backups{% endblock %}
+{% block breadcrumb %}Operations / Backups{% endblock %}
+
+{% block content %}
+<div class="row g-0 m-n4 h-100" style="margin: -24px !important; height: calc(100vh - 74px) !important;">
+    <!-- Left Panel: Device Selection -->
+    <div class="col-auto h-100 border-end d-flex flex-column" style="width: 300px; background-color: var(--bg-card);">
+        <div class="p-3 border-bottom">
+            <h6 class="fw-bold mb-3">Backup Configuration</h6>
+            <button class="btn btn-accent w-100 mb-3" id="btn-start-backup" onclick="runSelectedBackup()">
+                <i class="bi bi-cloud-arrow-down-fill me-2"></i> Start Backup
+            </button>
+            <div class="d-flex align-items-center">
+                <span class="small tx3 me-auto">Select Devices</span>
+                <div class="btn-group btn-group-xs">
+                    <button class="btn btn-outline-secondary py-0 px-2" style="font-size: 10px;" onclick="selectAll(true)">All</button>
+                    <button class="btn btn-outline-secondary py-0 px-2" style="font-size: 10px;" onclick="selectAll(false)">None</button>
+                </div>
+            </div>
+        </div>
+        <div class="p-2 border-bottom">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-transparent border-end-0 tx3"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control bg-transparent border-start-0" placeholder="Filter..." id="dev-filter">
+            </div>
+        </div>
+        <div class="flex-grow-1 overflow-auto" id="device-check-list">
+            <!-- Devices injected here -->
+            <div class="p-4 text-center tx3 small">Loading devices...</div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Backup History -->
+    <div class="col h-100 d-flex flex-column bg-app p-4 overflow-hidden">
+        <div class="d-flex align-items-center mb-4">
+            <h5 class="fw-bold mb-0 me-auto">Backup History</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadBackupList()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
+        </div>
+
+        <div class="card flex-grow-1 p-0 overflow-auto border-0 bg-transparent shadow-none">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="backup-table">
+                    <thead class="sticky-top bg-deep shadow-sm">
+                        <tr>
+                            <th class="ps-4 py-3">Device Name</th>
+                            <th class="py-3">Timestamp</th>
+                            <th class="py-3">File Name</th>
+                            <th class="py-3">Size</th>
+                            <th class="text-end pe-4 py-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="backup-list-body" class="bg-card">
+                        <tr><td colspan="5" class="text-center py-5 tx3">Scanning backup directory...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let devices = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadInitialData();
+        loadBackupList();
+        
+        document.getElementById('dev-filter').addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            document.querySelectorAll('.dev-item').forEach(item => {
+                const text = item.innerText.toLowerCase();
+                item.style.display = text.includes(val) ? 'flex' : 'none';
+            });
+        });
+    });
+
+    async function loadInitialData() {
+        try {
+            devices = await apiCall('GET', '/api/devices/');
+            renderDeviceList();
+        } catch (err) {
+            console.error("Failed to load devices:", err);
+        }
+    }
+
+    function renderDeviceList() {
+        const list = document.getElementById('device-check-list');
+        list.innerHTML = '';
+        if (devices.length === 0) {
+            list.innerHTML = '<div class="p-4 text-center tx3 small">No devices found.</div>';
+            return;
+        }
+        devices.forEach(d => {
+            const item = `
+                <div class="p-3 border-bottom d-flex align-items-center dev-item cursor-pointer" onclick="toggleCheck(${d.id})">
+                    <input class="form-check-input me-3 dev-checkbox" type="checkbox" value="${d.id}" id="chk-${d.id}" onclick="event.stopPropagation()">
+                    <div class="flex-grow-1">
+                        <div class="fw-bold small">${d.hostname}</div>
+                        <div class="tx3" style="font-size: 10px;">${d.ip_address}</div>
+                    </div>
+                </div>
+            `;
+            list.insertAdjacentHTML('beforeend', item);
+        });
+    }
+
+    function toggleCheck(id) {
+        const chk = document.getElementById(`chk-${id}`);
+        chk.checked = !chk.checked;
+    }
+
+    function selectAll(val) {
+        document.querySelectorAll('.dev-checkbox').forEach(c => c.checked = val);
+    }
+
+    async function loadBackupList() {
+        const body = document.getElementById('backup-list-body');
+        try {
+            const data = await apiCall('GET', '/api/backups/list');
+            body.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                body.innerHTML = '<tr><td colspan="5" class="text-center py-5 tx3">No backup history found.</td></tr>';
+                return;
+            }
+
+            data.forEach(b => {
+                body.insertAdjacentHTML('beforeend', `
+                    <tr>
+                        <td class="ps-4 py-3">
+                            <span class="fw-bold text-accent">${b.hostname}</span>
+                        </td>
+                        <td class="tx2 small">${new Date(b.timestamp).toLocaleString()}</td>
+                        <td class="text-mono tx3" style="font-size: 11px;">${b.filename}</td>
+                        <td class="tx3 small">${b.size}</td>
+                        <td class="text-end pe-4">
+                            <div class="btn-group shadow-sm">
+                                <a href="/api/backups/download/${b.filename}" class="btn btn-xs btn-outline-secondary" title="Download">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                <button class="btn btn-xs btn-outline-danger" onclick="deleteBackup('${b.filename}')" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `);
+            });
+        } catch (err) {
+            console.error("Failed to load backups:", err);
+            body.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-danger">Error loading backup list.</td></tr>';
+        }
+    }
+
+    async function runSelectedBackup() {
+        const ids = Array.from(document.querySelectorAll('.dev-checkbox:checked')).map(c => parseInt(c.value));
+        if (ids.length === 0) return showToast("Please select at least one device", "warning");
+
+        const btn = document.getElementById('btn-start-backup');
+        try {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+            
+            const res = await apiCall('POST', '/api/backups/run', { device_ids: ids });
+            showToast(`Started backup jobs for ${ids.length} devices`, "info");
+            
+            // Poll for group status
+            pollGroupStatus(res.task_ids);
+        } catch (err) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-cloud-arrow-down-fill me-2"></i> Start Backup';
+        }
+    }
+
+    function pollGroupStatus(taskIds) {
+        const btn = document.getElementById('btn-start-backup');
+        const interval = setInterval(async () => {
+            try {
+                const res = await apiCall('POST', '/api/backups/status/group', { task_ids: taskIds });
+                
+                if (res.done) {
+                    clearInterval(interval);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-cloud-arrow-down-fill me-2"></i> Start Backup';
+                    showToast("All backup jobs finished", "success");
+                    loadBackupList();
+                } else {
+                    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${res.completed}/${res.total} Done`;
+                }
+            } catch (e) {
+                clearInterval(interval);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-cloud-arrow-down-fill me-2"></i> Start Backup';
+            }
+        }, 2000);
+    }
+
+    async function deleteBackup(file) {
+        if (!confirm(`Are you sure you want to delete backup file: ${file}?`)) return;
+        try {
+            await apiCall('DELETE', `/api/backups/delete/${file}`);
+            showToast("Backup deleted", "success");
+            loadBackupList();
+        } catch (err) {}
+    }
+</script>
+<style>
+    .btn-xs { padding: 0.2rem 0.5rem; font-size: 0.75rem; }
+    .dev-item:hover { background-color: var(--bg-row); }
+    .table-responsive { max-height: 100%; }
+    .sticky-top { top: 0; z-index: 10; }
+</style>
+{% endblock %}

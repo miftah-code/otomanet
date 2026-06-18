@@ -1,0 +1,27 @@
+! ---------------------------------------------------------
+! OTOMANET - Fortinet FortiOS SSH Pre-configuration
+! ---------------------------------------------------------
+
+! 1. Konfigurasi Hostname
+config system global
+    set hostname FortiGate-MKT
+end
+
+! 2. Buat Admin User (Super Admin)
+config system admin
+    edit "admin"
+        set password admin123
+        set accprofile "super_admin"
+        set vdom "root"
+    next
+end
+
+! 3. Aktifkan Akses SSH pada Interface (Misal port1)
+config system interface
+    edit "port1"
+        set allowaccess ping https ssh snmp http
+    next
+end
+
+! 4. Verifikasi Koneksi
+! Pastikan Port 22 terbuka dan bisa diping dari server OTOMANET.

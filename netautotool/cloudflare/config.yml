@@ -1,0 +1,22 @@
+# OTOMANET Cloudflare Tunnel Configuration
+# Path: /opt/otomanet/cloudflare/config.yml
+
+tunnel: <TUNNEL_ID>
+credentials-file: /home/otomanet/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  # Route traffic to the local Nginx proxy (which proxies to Gunicorn)
+  - hostname: otomanet.yourdomain.com
+    service: http://localhost:80
+    
+  # Catch-all 404
+  - service: http_status:404
+
+# LANGKAH SETUP CLOUDFLARE TUNNEL:
+# 1. Install cloudflared: curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb && sudo dpkg -i cloudflared.deb
+# 2. Login: cloudflared tunnel login
+# 3. Buat tunnel: cloudflared tunnel create otomanet
+# 4. Copy tunnel ID yang dihasilkan ke config.yml (ganti <TUNNEL_ID>)
+# 5. Buat DNS record: cloudflared tunnel route dns otomanet otomanet.yourdomain.com
+# 6. Test: cloudflared tunnel run --config /opt/otomanet/cloudflare/config.yml otomanet
+# 7. Enable service: systemctl enable cloudflared

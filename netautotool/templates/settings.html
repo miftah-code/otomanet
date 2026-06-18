@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+{% block breadcrumb %}Management / Settings{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0" style="max-width: 1000px;">
+    <h4 class="fw-bold mb-4">Application Settings</h4>
+
+    <!-- General Settings -->
+    <div class="card mb-4" id="section-general">
+        <h6 class="fw-bold mb-4 d-flex align-items-center">
+            <i class="bi bi-gear-fill text-accent me-2"></i> General Configuration
+        </h6>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <label class="form-label tx2 small">Application Name</label>
+                <input type="text" class="form-control" id="set-app-name" value="OTOMANET">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label tx2 small">System Timezone</label>
+                <select class="form-select" id="set-timezone">
+                    <option value="UTC">UTC</option>
+                    <option value="Asia/Jakarta" selected>Asia/Jakarta (GMT+7)</option>
+                    <option value="Asia/Singapore">Asia/Singapore (GMT+8)</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label tx2 small">App Description</label>
+                <textarea class="form-control" rows="2" id="set-app-desc">Professional Network Automation Platform</textarea>
+            </div>
+        </div>
+        <div class="mt-4 border-top pt-3 text-end">
+            <button class="btn btn-accent btn-sm px-4" onclick="saveSection('general')">Save General</button>
+        </div>
+    </div>
+
+    <!-- Backup Settings -->
+    <div class="card mb-4" id="section-backup">
+        <h6 class="fw-bold mb-4 d-flex align-items-center">
+            <i class="bi bi-cloud-arrow-down-fill text-success me-2"></i> Backup & Retention
+        </h6>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="set-backup-enable" checked>
+                    <label class="form-check-label fw-bold small" for="set-backup-enable">Auto-Backup Enabled</label>
+                </div>
+                <label class="form-label tx2 small">Backup Interval</label>
+                <select class="form-select" id="set-backup-interval">
+                    <option value="1">Every Hour</option>
+                    <option value="6">Every 6 Hours</option>
+                    <option value="12">Every 12 Hours</option>
+                    <option value="24" selected>Daily (Midnight)</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label tx2 small">Retention Period (Days)</label>
+                <input type="number" class="form-control" id="set-backup-days" value="30">
+                <div class="tx3 fs-xs mt-1">Files older than this will be deleted automatically.</div>
+            </div>
+        </div>
+        <div class="mt-4 border-top pt-3 text-end">
+            <button class="btn btn-accent btn-sm px-4" onclick="saveSection('backup')">Save Backup Settings</button>
+        </div>
+    </div>
+
+    <!-- System Info -->
+    <div class="card mb-4">
+        <h6 class="fw-bold mb-4 d-flex align-items-center">
+            <i class="bi bi-info-circle-fill text-info me-2"></i> System Information
+        </h6>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="bg-deep p-3 rounded text-center">
+                    <div class="tx3 fs-xs text-uppercase mb-1">Platform</div>
+                    <div class="fw-bold">Ubuntu 22.04 LTS</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="bg-deep p-3 rounded text-center">
+                    <div class="tx3 fs-xs text-uppercase mb-1">Python Version</div>
+                    <div class="fw-bold">3.10.12</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="bg-deep p-3 rounded text-center">
+                    <div class="tx3 fs-xs text-uppercase mb-1">Database</div>
+                    <div class="fw-bold">SQLite 3.37.2</div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 p-3 border rounded border-secondary opacity-50 bg-deep">
+            <div class="row g-2 small">
+                <div class="col-6 tx3">Celery Status:</div>
+                <div class="col-6 text-success fw-bold text-end">Connected</div>
+                <div class="col-6 tx3">Redis Status:</div>
+                <div class="col-6 text-success fw-bold text-end">Active (127.0.0.1:6379)</div>
+                <div class="col-6 tx3">Total Backups:</div>
+                <div class="col-6 text-end">124 files (45.2 MB)</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function saveSection(section) {
+        showToast(`Saving ${section} settings...`, "info");
+        // Logic to collect values and POST to /api/settings
+        // For demonstration, we simulate success
+        setTimeout(() => {
+            showToast(`${section.charAt(0).toUpperCase() + section.slice(1)} settings saved successfully`, "success");
+            appendConsole(`System settings updated for section: ${section}`, "info");
+        }, 1000);
+    }
+</script>
+{% endblock %}

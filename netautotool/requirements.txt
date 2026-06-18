@@ -1,0 +1,35 @@
+# Backend Framework
+Flask
+Flask-Login
+Flask-SQLAlchemy
+Flask-Migrate
+werkzeug
+gunicorn
+flask-socketio
+gevent
+gevent-websocket
+
+# Network Automation
+netmiko
+paramiko
+ansible
+ansible-runner
+
+# Database & Models
+sqlalchemy
+psycopg2-binary
+alembic
+
+# Security & Utilities
+cryptography
+python-dotenv
+croniter
+pytz
+
+# Task Queue
+celery[redis]
+redis
+
+# Testing
+pytest
+httpx

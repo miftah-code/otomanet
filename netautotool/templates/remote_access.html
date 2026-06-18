@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}Remote Access{% endblock %}
+{% block breadcrumb %}Operations / Remote Access{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/xterm/xterm.min.css') }}">
+<style>
+    .terminal-container {
+        background: var(--bg-deep);
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        height: 500px;
+    }
+    #terminal {
+        height: 100%;
+    }
+    .device-card:hover {
+        border-color: var(--accent) !important;
+        background-color: var(--bg-row);
+        cursor: pointer;
+    }
+    #terminal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        backdrop-filter: blur(8px);
+        z-index: 2000;
+        display: none;
+        padding: 20px;
+    }
+    .terminal-modal {
+        background: #000; /* Terminal should always be dark */
+        border: 1px solid var(--accent);
+        border-radius: 12px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        overflow: hidden;
+    }
+    .terminal-header {
+        padding: 10px 20px;
+        background: #1a1a1a;
+        border-bottom: 1px solid #333;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #fff;
+    }
+    #terminal-wrapper {
+        flex: 1;
+        background: #000;
+        padding: 10px;
+    }
+    .xterm-viewport {
+        overflow-y: auto !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-4">
+        <h4 class="fw-bold mb-1">Remote Access</h4>
+        <p class="tx3 small">Direct SSH access to your network devices via web terminal.</p>
+    </div>
+
+    <div class="row g-3" id="device-grid">
+        <!-- Devices will be injected here -->
+    </div>
+</div>
+
+<!-- Terminal Overlay -->
+<div id="terminal-overlay">
+    <div class="terminal-modal">
+        <div class="terminal-header">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-terminal text-accent me-2"></i>
+                <span class="fw-bold" id="active-device-name">Terminal</span>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary" onclick="toggleTerminalSize()" id="resize-btn" title="Toggle Fullscreen">
+                    <i class="bi bi-arrows-fullscreen"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="clearTerminal()" title="Clear Screen">Clear</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="closeTerminal()">Close Session</button>
+            </div>
+        </div>
+        <div class="flex-1 p-2 overflow-hidden">
+            <div id="terminal-wrapper" style="height: 100%;"></div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='vendor/xterm/socket.io.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/xterm/xterm.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/xterm/xterm-addon-fit.min.js') }}"></script>
+
+<script>
+    let socket;
+    let term;
+    let fitAddon;
+    let devices = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDevices();
+    });
+
+    async function loadDevices() {
+        try {
+            devices = await apiCall('GET', '/api/devices/');
+            renderDevices();
+        } catch (e) {}
+    }
+
+    function renderDevices() {
+        const grid = document.getElementById('device-grid');
+        grid.innerHTML = '';
+        devices.forEach(d => {
+            const card = `
+                <div class="col-md-4 col-lg-3">
+                    <div class="card h-100 device-card" onclick="connectToDevice(${d.id})">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="p-2 bg-accent-bg rounded me-3">
+                                <i class="bi bi-hdd-network text-accent fs-5"></i>
+                            </div>
+                            <div class="overflow-hidden">
+                                <h6 class="fw-bold mb-0 text-truncate">${d.hostname}</h6>
+                                <div class="tx3 small">${d.ip_address}</div>
+                            </div>
+                        </div>
+                        <div class="mt-auto d-flex align-items-center justify-content-between">
+                            <span class="badge bg-deep text-secondary border border-secondary opacity-75 small">${d.device_type}</span>
+                            <i class="bi bi-chevron-right tx3"></i>
+                        </div>
+                    </div>
+                </div>
+            `;
+            grid.insertAdjacentHTML('beforeend', card);
+        });
+    }
+
+    function connectToDevice(id) {
+        const device = devices.find(d => d.id === id);
+        if (!device) return;
+
+        document.getElementById('active-device-name').textContent = `SSH: ${device.hostname} (${device.ip_address})`;
+        document.getElementById('terminal-overlay').style.display = 'block';
+
+        initTerminal();
+        
+        socket = io({transports: ['websocket'], upgrade: false});
+        
+        socket.on('connect', () => {
+            socket.emit('connect_terminal', { device_id: id });
+        });
+
+        socket.on('terminal_output', (data) => {
+            term.write(data.data);
+        });
+
+        socket.on('disconnect', () => {
+            term.write('\r\n[Disconnected from server]\r\n');
+        });
+    }
+
+    function initTerminal() {
+        const container = document.getElementById('terminal-wrapper');
+        container.innerHTML = '';
+
+        term = new Terminal({
+            cursorBlink: true,
+            theme: {
+                background: '#000000',
+                foreground: '#ffffff',
+                cursor: '#38bdf8'
+            },
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 14
+        });
+
+        fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(container);
+        
+        // Wait a bit for the DOM to settle then fit
+        setTimeout(() => fitAddon.fit(), 100);
+
+        term.onData(data => {
+            if (socket && socket.connected) {
+                socket.emit('terminal_input', { data: data });
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            if (fitAddon) {
+                fitAddon.fit();
+            }
+        });
+    }
+
+    function toggleTerminalSize() {
+        const overlay = document.getElementById('terminal-overlay');
+        const btn = document.getElementById('resize-btn');
+        if (overlay.style.padding === '0px') {
+            overlay.style.padding = '20px';
+            btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i>';
+        } else {
+            overlay.style.padding = '0px';
+            btn.innerHTML = '<i class="bi bi-fullscreen-exit"></i>';
+        }
+        if (fitAddon) fitAddon.fit();
+    }
+
+    function closeTerminal() {
+        if (socket) socket.disconnect();
+        document.getElementById('terminal-overlay').style.display = 'none';
+        if (term) term.dispose();
+    }
+
+    function clearTerminal() {
+        if (term) term.clear();
+    }
+</script>
+{% endblock %}

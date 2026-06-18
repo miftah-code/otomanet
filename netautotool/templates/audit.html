@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Logs{% endblock %}
+{% block breadcrumb %}Administration / Audit Logs{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="d-flex align-items-center mb-4">
+        <h4 class="fw-bold mb-0 me-auto">Security Audit Trail</h4>
+        <div class="btn-group">
+            <a href="/api/audit/logs/export" class="btn btn-outline-secondary px-3">
+                <i class="bi bi-download me-1"></i> Export CSV
+            </a>
+            <button class="btn btn-outline-secondary px-3" onclick="loadLogs()">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card p-3 mb-4">
+        <form id="filterForm" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label tx3 fs-xs text-uppercase">User</label>
+                <select class="form-select form-select-sm bg-deep border-0" id="filter-user">
+                    <option value="">All Users</option>
+                    {% for u in users %}<option value="{{ u.username }}">{{ u.username }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label tx3 fs-xs text-uppercase">Action</label>
+                <select class="form-select form-select-sm bg-deep border-0" id="filter-action">
+                    <option value="">All Actions</option>
+                    <option value="LOGIN">LOGIN</option>
+                    <option value="ADD_DEVICE">ADD_DEVICE</option>
+                    <option value="PUSH_CONFIG">PUSH_CONFIG</option>
+                    <option value="BACKUP">BACKUP</option>
+                    <option value="DELETE_USER">DELETE_USER</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label tx3 fs-xs text-uppercase">Date Range</label>
+                <div class="input-group input-group-sm">
+                    <input type="date" class="form-control bg-deep border-0" id="filter-from">
+                    <span class="input-group-text bg-deep border-0 tx3">to</span>
+                    <input type="date" class="form-control bg-deep border-0" id="filter-to">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-accent w-100" onclick="loadLogs()">Apply Filters</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Log Table -->
+    <div class="card p-0 overflow-hidden">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-4">Timestamp</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>IP Address</th>
+                    <th class="text-end pe-4">Details</th>
+                </tr>
+            </thead>
+            <tbody id="audit-list-body">
+                <tr><td colspan="6" class="text-center py-5 tx3">Loading logs...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Log Detail Modal -->
+<div class="modal fade" id="logModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-card border">
+            <div class="modal-header">
+                <h5 class="modal-title">Log Detail</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="log-detail-json" class="p-3 bg-deep rounded text-mono small" style="color: #cbd5e1;"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', loadLogs);
+
+    async function loadLogs() {
+        const user = document.getElementById('filter-user').value;
+        const action = document.getElementById('filter-action').value;
+        const from = document.getElementById('filter-from').value;
+        const to = document.getElementById('filter-to').value;
+        
+        let url = `/api/audit/logs?user=${user}&action=${action}&date_from=${from}&date_to=${to}`;
+        
+        try {
+            const data = await apiCall('GET', url);
+            const body = document.getElementById('audit-list-body');
+            body.innerHTML = '';
+            
+            data.forEach(log => {
+                let actionBadge = 'bg-secondary-subtle text-secondary';
+                if (log.action.includes('LOGIN')) actionBadge = 'bg-info-subtle text-info';
+                if (log.action.includes('ADD') || log.action.includes('EDIT')) actionBadge = 'bg-success-subtle text-success';
+                if (log.action.includes('DELETE') || log.action.includes('FAILED')) actionBadge = 'bg-danger-subtle text-danger';
+                if (log.action.includes('PUSH') || log.action.includes('BACKUP')) actionBadge = 'bg-accent-bg text-accent';
+
+                body.insertAdjacentHTML('beforeend', `
+                    <tr>
+                        <td class="ps-4 tx2 small">${new Date(log.timestamp).toLocaleString()}</td>
+                        <td class="fw-bold">${log.username}</td>
+                        <td><span class="badge ${actionBadge} text-uppercase" style="font-size: 9px;">${log.action}</span></td>
+                        <td class="tx3 small">${log.target}</td>
+                        <td class="text-mono fs-xs tx3">${log.ip}</td>
+                        <td class="text-end pe-4">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="showLogDetail(${JSON.stringify(log.detail).replace(/"/g, '&quot;')})">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `);
+            });
+        } catch (e) {}
+    }
+
+    function showLogDetail(detail) {
+        let content = "No additional details";
+        if (detail) {
+            try {
+                const obj = JSON.parse(detail);
+                content = JSON.stringify(obj, null, 2);
+            } catch (e) {
+                content = detail;
+            }
+        }
+        document.getElementById('log-detail-json').textContent = content;
+        new bootstrap.Modal(document.getElementById('logModal')).show();
+    }
+</script>
+<style>
+    .table th { border-top: none; font-size: 11px; text-transform: uppercase; color: var(--tx3); font-weight: 700; padding: 12px 16px; }
+    .table td { border-bottom: 1px solid var(--border); padding: 12px 16px; vertical-align: middle; }
+</style>
+{% endblock %}

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OTOMANET{% endblock %}</title>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- CSS Dependencies -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/otomanet.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="{% if request.cookies.get('otomanet_theme') == 'light' %}light{% endif %}">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <i class="bi bi-cpu-fill"></i>
+            <span>OTOMANET</span>
+        </div>
+        <div class="sidebar-content">
+            <div class="sidebar-section-header">Monitoring</div>
+            <a href="/dashboard" class="nav-item {% if request.path == '/dashboard' %}active{% endif %}">
+                <i class="bi bi-speedometer2 nav-icon"></i>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="/devices" class="nav-item {% if request.path == '/devices' %}active{% endif %}">
+                <i class="bi bi-hdd-network nav-icon"></i>
+                <span class="nav-label">Inventory</span>
+            </a>
+
+            <div class="sidebar-section-header">Operations</div>
+            <a href="/push-config" class="nav-item {% if request.path == '/push-config' %}active{% endif %}">
+                <i class="bi bi-terminal nav-icon"></i>
+                <span class="nav-label">Push Config</span>
+            </a>
+            <a href="/verification" class="nav-item {% if request.path == '/verification' %}active{% endif %}">
+                <i class="bi bi-shield-check nav-icon"></i>
+                <span class="nav-label">Verification</span>
+            </a>
+            <a href="/remote-access" class="nav-item {% if request.path == '/remote-access' %}active{% endif %}">
+                <i class="bi bi-terminal-fill nav-icon"></i>
+                <span class="nav-label">Remote Access</span>
+            </a>
+            <a href="/backup" class="nav-item {% if request.path == '/backup' %}active{% endif %}">
+                <i class="bi bi-cloud-arrow-down nav-icon"></i>
+                <span class="nav-label">Backups</span>
+            </a>
+            <a href="/piro" class="nav-item {% if request.path == '/piro' %}active{% endif %}">
+                <i class="bi bi-layers-half nav-icon"></i>
+                <span class="nav-label">PIRO Calculator</span>
+            </a>
+
+            <div class="sidebar-section-header">Management</div>
+            <a href="/jobs" class="nav-item {% if request.path == '/jobs' %}active{% endif %}">
+                <i class="bi bi-list-task nav-icon"></i>
+                <span class="nav-label">Jobs</span>
+            </a>
+            {% if current_user.is_authenticated and current_user.is_admin() %}
+            <a href="/users" class="nav-item {% if request.path == '/users' %}active{% endif %}">
+                <i class="bi bi-people nav-icon"></i>
+                <span class="nav-label">Users</span>
+            </a>
+            <a href="/audit" class="nav-item {% if request.path == '/audit' %}active{% endif %}">
+                <i class="bi bi-journal-text nav-icon"></i>
+                <span class="nav-label">Audit Logs</span>
+            </a>
+            <a href="/settings" class="nav-item {% if request.path == '/settings' %}active{% endif %}">
+                <i class="bi bi-gear nav-icon"></i>
+                <span class="nav-label">Settings</span>
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="user-section">
+                <div class="avatar">{{ current_user.username[0].upper() if current_user.is_authenticated else '?' }}</div>
+            </div>
+            <div class="user-info-centered">
+                <div class="user-name">{{ current_user.username if current_user.is_authenticated else 'Guest' }}</div>
+                <span class="badge bg-accent-bg text-accent user-role text-uppercase">{{ current_user.role if current_user.is_authenticated else 'none' }}</span>
+            </div>
+            <form action="/auth/logout" method="POST">
+                <button type="submit" class="nav-item w-100 border-0 bg-transparent text-danger" title="Logout">
+                    <i class="bi bi-box-arrow-left nav-icon"></i>
+                    <span class="nav-label">Logout</span>
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div id="main-wrapper">
+        <header id="top-navbar">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-link text-secondary p-0 me-3" onclick="toggleSidebar()">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <div class="breadcrumb-area small tx3">
+                    {% block breadcrumb %}Dashboard{% endblock %}
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div id="clock-container" class="d-flex align-items-center text-mono small tx3 d-none d-md-block">
+                    <i id="clock-icon" class="bi bi-clock me-2"></i>
+                    <span id="real-time-clock">00:00:00</span>
+                </div>
+                <div class="vr mx-2 opacity-25"></div>
+                <button class="btn btn-link text-secondary p-0" id="theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+                    <i class="bi bi-sun-fill"></i>
+                </button>
+                <div class="badge bg-deep text-secondary px-3 py-2 rounded-pill small border border-secondary opacity-50">
+                    v1.2.0-stable
+                </div>
+            </div>
+        </header>
+
+        <main id="content-area">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category }} alert-dismissible fade show mb-4" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer id="console-panel" class="minimized">
+            <div class="console-resizer"></div>
+            <div class="console-header" onclick="toggleConsole()">
+                <div><i class="bi bi-terminal me-2"></i>System Console</div>
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-trash me-3 cursor-pointer" onclick="event.stopPropagation(); clearConsole();" title="Clear"></i>
+                    <i class="bi bi-chevron-up" id="console-toggle-icon"></i>
+                </div>
+            </div>
+            <div class="console-body" id="console-body">
+                <div class="tx3 small">Welcome to OTOMANET v1.2 Console...</div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/otomanet.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

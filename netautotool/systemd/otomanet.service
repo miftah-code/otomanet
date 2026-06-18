@@ -1,0 +1,25 @@
+[Unit]
+Description=OTOMANET Gunicorn Service
+After=network.target redis.service
+Wants=redis.service
+
+[Service]
+User=miftah
+Group=miftah
+WorkingDirectory=/home/miftah/.antigravity-server/1.Project_Automation/netautotool
+Environment="PATH=/home/miftah/.antigravity-server/1.Project_Automation/netautotool/venv/bin"
+EnvironmentFile=/home/miftah/.antigravity-server/1.Project_Automation/netautotool/.env
+ExecStart=/home/miftah/.antigravity-server/1.Project_Automation/netautotool/venv/bin/gunicorn \
+    --workers 4 \
+    --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker \
+    --bind 0.0.0.0:8000 \
+    --timeout 120 \
+    run:app
+
+ExecReload=/bin/kill -s HUP $MAINPID
+
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

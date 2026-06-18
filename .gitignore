@@ -1,0 +1,37 @@
+# Root .gitignore for OTOMANET + PIRO
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+ENV/
+*.log
+
+# Databases & Credentials
+netautotool/otomanet.db
+netautotool/.env
+netautotool/celerybeat-schedule*
+netautotool/backup/
+netautotool/reports/
+netautotool/logs/
+
+# Large Archives & OS files
+*.tar
+*.tar.gz
+*.zip
+.DS_Store
+Thumbs.db
+
+# Frontend (Node & build files)
+PIRO/node_modules/
+PIRO/dist/
+PIRO/.env
+PIRO/.env.local
+PIRO/.env.development.local
+PIRO/.env.test.local
+PIRO/.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Push Config{% endblock %}
+{% block breadcrumb %}Operations / Push Configuration{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <h6 class="fw-bold mb-3">1. Selection Mode</h6>
+            <div class="btn-group w-100 mb-4" role="group">
+                <input type="radio" class="btn-check" name="mode" id="mode-single" checked onclick="toggleMode('single')">
+                <label class="btn btn-outline-secondary" for="mode-single">Single Device</label>
+                <input type="radio" class="btn-check" name="mode" id="mode-bulk" onclick="toggleMode('bulk')">
+                <label class="btn btn-outline-secondary" for="mode-bulk">Bulk / Multi</label>
+            </div>
+
+            <h6 class="fw-bold mb-3">2. Select Targets</h6>
+            
+            <!-- Single Mode -->
+            <div id="target-single">
+                <select class="form-select mb-3" id="single-device-select" onchange="updatePlaceholder()">
+                    <option value="">Choose a device...</option>
+                    {% for d in devices %}
+                    <option value="{{ d.id }}" data-vendor="{{ d.device_type }}">{{ d.hostname }} ({{ d.ip_address }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Bulk Mode -->
+            <div id="target-bulk" class="d-none">
+                <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text bg-deep border-0"><i class="bi bi-filter"></i></span>
+                    <input type="text" class="form-control bg-deep border-0" placeholder="Filter devices..." onkeyup="filterDeviceList(this.value)">
+                    <button class="btn btn-outline-secondary" onclick="selectAll(true)">All</button>
+                    <button class="btn btn-outline-secondary" onclick="selectAll(false)">None</button>
+                </div>
+                <div class="overflow-auto border rounded bg-deep" style="max-height: 300px;" id="bulk-list">
+                    {% for d in devices %}
+                    <div class="p-2 border-bottom border-secondary opacity-50 d-flex align-items-center device-item">
+                        <input class="form-check-input me-3 bulk-chk" type="checkbox" value="{{ d.id }}" id="chk-{{ d.id }}">
+                        <label class="form-check-label small flex-1 cursor-pointer" for="chk-{{ d.id }}">
+                            <span class="fw-medium">{{ d.hostname }}</span>
+                            <span class="badge bg-accent-bg text-accent ms-2" style="font-size: 8px;">{{ d.device_type }}</span>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="d-flex align-items-center mb-3">
+                <h6 class="fw-bold mb-0">3. Configuration Commands</h6>
+                <div class="ms-auto text-accent fs-xs fw-bold text-uppercase" id="vendor-hint">GENERIC</div>
+            </div>
+            <textarea class="form-control bg-deep border-0 text-mono mb-3" id="config-text" rows="12" placeholder="Enter commands here..."></textarea>
+            
+            <div class="d-flex gap-2">
+                <button class="btn btn-accent px-4" id="btn-push" onclick="runPush()">
+                    <i class="bi bi-play-fill me-1"></i> Push Configuration
+                </button>
+                <button class="btn btn-outline-secondary px-4" onclick="runPush(true)">
+                    Dry Run
+                </button>
+                <button class="btn btn-outline-secondary ms-auto" onclick="document.getElementById('config-text').value = ''">
+                    Clear
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress & Results -->
+    <div class="col-12 d-none" id="result-panel">
+        <div class="card">
+            <h6 class="fw-bold mb-3">Deployment Status</h6>
+            <div id="progress-container" class="mb-4">
+                <!-- Progress items injected here -->
+            </div>
+            <div id="output-container">
+                <!-- Output blocks injected here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const placeholders = {
+        'cisco_ios': 'interface GigabitEthernet0/1\n description WAN Link\n no shutdown',
+        'mikrotik_routeros': '/ip address add address=10.0.0.1/24 interface=ether1',
+        'juniper_junos': 'set interfaces ge-0/0/0 unit 0 family inet address 10.0.0.1/24',
+        'generic': 'Enter commands here...'
+    };
+
+    function toggleMode(mode) {
+        document.getElementById('target-single').classList.toggle('d-none', mode === 'bulk');
+        document.getElementById('target-bulk').classList.toggle('d-none', mode === 'single');
+    }
+
+    function updatePlaceholder() {
+        const sel = document.getElementById('single-device-select');
+        const vendor = sel.options[sel.selectedIndex].dataset.vendor || 'generic';
+        document.getElementById('config-text').placeholder = placeholders[vendor] || placeholders['generic'];
+        document.getElementById('vendor-hint').textContent = vendor.toUpperCase();
+    }
+
+    function filterDeviceList(val) {
+        const items = document.querySelectorAll('.device-item');
+        items.forEach(i => {
+            const match = i.textContent.toLowerCase().includes(val.toLowerCase());
+            i.style.display = match ? 'flex' : 'none';
+        });
+    }
+
+    function selectAll(val) {
+        document.querySelectorAll('.bulk-chk').forEach(c => c.checked = val);
+    }
+
+    async function runPush(dryRun = false) {
+        const mode = document.querySelector('input[name="mode"]:checked').id === 'mode-single' ? 'single' : 'bulk';
+        const config = document.getElementById('config-text').value.split('\n').filter(l => l.trim() !== '');
+        
+        let deviceIds = [];
+        if (mode === 'single') {
+            const val = document.getElementById('single-device-select').value;
+            if (val) deviceIds.push(parseInt(val));
+        } else {
+            deviceIds = Array.from(document.querySelectorAll('.bulk-chk:checked')).map(c => parseInt(c.value));
+        }
+
+        if (deviceIds.length === 0) return showToast("Please select at least one device", "warning");
+        if (config.length === 0) return showToast("Enter at least one command", "warning");
+
+        document.getElementById('result-panel').classList.remove('d-none');
+        document.getElementById('progress-container').innerHTML = '';
+        document.getElementById('output-container').innerHTML = '';
+        
+        appendConsole(`Initiating config push to ${deviceIds.length} devices...`, "info");
+        
+        // Call bulk push API (Assuming existing API or we use a new one)
+        try {
+            const res = await apiCall('POST', '/api/devices/bulk-push-config', {
+                device_ids: deviceIds,
+                commands: config
+            });
+            
+            // Render results
+            res.forEach(r => {
+                const statusColor = r.success ? 'text-success' : 'text-danger';
+                const statusIcon = r.success ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
+                
+                const item = `
+                    <div class="border rounded p-3 mb-3 bg-deep">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="fw-bold me-2">${r.hostname}</span>
+                            <span class="${statusColor} small ms-auto"><i class="bi ${statusIcon} me-1"></i>${r.success ? 'Success' : 'Failed'}</span>
+                        </div>
+                        <pre class="m-0 fs-xs" style="color: #cbd5e1;">${r.output || r.error}</pre>
+                    </div>
+                `;
+                document.getElementById('output-container').insertAdjacentHTML('beforeend', item);
+            });
+            
+            showToast("Configuration deployment finished", "info");
+        } catch (err) {}
+    }
+</script>
+{% endblock %}

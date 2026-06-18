@@ -1,0 +1,24 @@
+# ---------------------------------------------------------
+# OTOMANET - Juniper JunOS SSH Pre-configuration
+# ---------------------------------------------------------
+
+# Masuk ke mode configuration
+# CLI: edit
+
+# 1. Aktifkan Service SSH dan NETCONF
+set system services ssh
+set system services netconf ssh
+
+# 2. Set Root Password (Wajib untuk commit)
+set system root-authentication plain-text-password
+# (Masukkan password saat diminta)
+
+# 3. Buat User Automation (Admin)
+set system login user admin class super-user authentication plain-text-password
+# (Masukkan password saat diminta, misal: admin123)
+
+# 4. Commit Perubahan
+commit
+
+# 5. Verifikasi
+# Pastikan interface memiliki IP dan SSH bisa diakses.

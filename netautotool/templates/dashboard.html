@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block breadcrumb %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Greeting -->
+    <div class="mb-4">
+        <h4 class="fw-bold mb-1" id="greeting">Good morning, Administrator</h4>
+        <p class="tx2 mb-0">Here's what's happening with your network today.</p>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card h-100">
+                <div class="stat-label">Total Devices</div>
+                <div class="d-flex align-items-center mt-2">
+                    <div class="stat-value me-auto" id="stat-total-devices">--</div>
+                    <i class="bi bi-cpu fs-4 tx3"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card h-100">
+                <div class="stat-label">Online</div>
+                <div class="d-flex align-items-center mt-2">
+                    <div class="stat-value me-auto text-success" id="stat-online">--</div>
+                    <div class="status-dot pulse"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card h-100">
+                <div class="stat-label">Offline</div>
+                <div class="d-flex align-items-center mt-2">
+                    <div class="stat-value me-auto text-danger" id="stat-offline">--</div>
+                    <i class="bi bi-exclamation-triangle fs-4 text-danger opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card h-100">
+                <div class="stat-label">Last Backup</div>
+                <div class="d-flex align-items-center mt-2">
+                    <div class="stat-value me-auto" id="stat-last-backup">Today</div>
+                    <i class="bi bi-cloud-check fs-4 text-accent"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Host Health Monitoring -->
+        <div class="col-lg-8">
+            <div class="d-flex align-items-center mb-3">
+                <h6 class="fw-bold mb-0 me-auto">Host Health Monitoring</h6>
+                <button class="btn btn-sm btn-outline-secondary border-0" onclick="refreshHealth()">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                </button>
+            </div>
+            <div class="row g-3" id="health-grid">
+                <!-- Cards will be injected here -->
+                <div class="col-12 text-center py-5 tx3">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    Loading device health...
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Recent Activity & Quick Actions -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <h6 class="fw-bold mb-3">Quick Actions</h6>
+            <div class="card p-2 mb-4">
+                <div class="list-group list-group-flush">
+                    <a href="/verification" class="list-group-item list-group-item-action border-0 d-flex align-items-center py-2">
+                        <div class="bg-accent-bg text-accent rounded p-2 me-3"><i class="bi bi-shield-check"></i></div>
+                        <div>
+                            <div class="fw-semibold small">Run Verification</div>
+                            <div class="tx3" style="font-size: 10px;">Audit configuration compliance</div>
+                        </div>
+                    </a>
+                    <a href="/push-config" class="list-group-item list-group-item-action border-0 d-flex align-items-center py-2">
+                        <div class="bg-primary-subtle text-primary rounded p-2 me-3"><i class="bi bi-terminal"></i></div>
+                        <div>
+                            <div class="fw-semibold small">Push Config</div>
+                            <div class="tx3" style="font-size: 10px;">Send commands to multiple hosts</div>
+                        </div>
+                    </a>
+                    <button class="list-group-item list-group-item-action border-0 d-flex align-items-center py-2" onclick="runBulkBackup()">
+                        <div class="bg-success-subtle text-success rounded p-2 me-3"><i class="bi bi-cloud-arrow-down"></i></div>
+                        <div>
+                            <div class="fw-semibold small">Bulk Backup</div>
+                            <div class="tx3" style="font-size: 10px;">Archive all running configs</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <h6 class="fw-bold mb-3">Recent Activity</h6>
+            <div class="card p-0 overflow-hidden">
+                <div class="list-group list-group-flush" id="activity-feed">
+                    <div class="list-group-item text-center py-4 tx3 small">No recent activity</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        updateGreeting();
+        refreshHealth();
+        // Auto refresh every 30 seconds
+        setInterval(refreshHealth, 30000);
+    });
+
+    function updateGreeting() {
+        const hour = new Date().getHours();
+        const user = "{{ (current_user.username if current_user else 'Administrator') }}";
+        let greet = "Good evening";
+        if (hour < 12) greet = "Good morning";
+        else if (hour < 18) greet = "Good afternoon";
+        document.getElementById('greeting').textContent = `${greet}, ${user}`;
+    }
+
+    async function refreshHealth() {
+        try {
+            const devices = await apiCall('GET', '/api/health/status');
+            const grid = document.getElementById('health-grid');
+            grid.innerHTML = '';
+            
+            let onlineCount = 0;
+            let offlineCount = 0;
+            
+            devices.forEach(d => {
+                if (d.status === 'UP' || d.status === 'SLOW') onlineCount++;
+                else offlineCount++;
+                
+                const statusClass = d.status === 'UP' ? 'bg-success' : (d.status === 'SLOW' ? 'bg-warning' : 'bg-danger');
+                const pulseClass = d.status === 'UP' ? 'pulse' : '';
+                
+                const card = `
+                    <div class="col-md-6 col-xl-4">
+                        <div class="card mb-0 h-100 p-3">
+                            <div class="d-flex align-items-start mb-2">
+                                <div class="me-auto">
+                                    <div class="fw-bold small mb-1">${d.hostname}</div>
+                                    <div class="tx2" style="font-size: 11px;">${d.ip}</div>
+                                </div>
+                                <div class="status-dot ${statusClass} ${pulseClass}"></div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between mt-auto pt-2 border-top border-secondary opacity-25" style="border-top-style: dashed !important;">
+                                <div class="tx3" style="font-size: 10px;">Latency</div>
+                                <div class="fw-medium" style="font-size: 11px;">${d.ping_ms ? d.ping_ms + 'ms' : '--'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', card);
+            });
+            
+            document.getElementById('stat-total-devices').textContent = devices.length;
+            document.getElementById('stat-online').textContent = onlineCount;
+            document.getElementById('stat-offline').textContent = offlineCount;
+            
+        } catch (err) {
+            console.error("Health Refresh Failed:", err);
+        }
+    }
+
+    async function runBulkBackup() {
+        try {
+            appendConsole("Starting bulk backup task...", "info");
+            // We need to get all device IDs
+            const devices = await apiCall('GET', '/api/devices/');
+            const ids = devices.map(d => d.id);
+            const res = await apiCall('POST', '/api/devices/bulk-backup', { device_ids: ids });
+            showToast("Bulk backup task started", "success");
+            appendConsole("Bulk backup task submitted to Celery.", "success");
+        } catch (err) {
+            showToast("Failed to start bulk backup", "error");
+        }
+    }
+</script>
+{% endblock %}

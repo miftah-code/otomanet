@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+
+{% block title %}Devices{% endblock %}
+{% block breadcrumb %}Inventory / Devices{% endblock %}
+
+{% block content %}
+<div class="row g-0 m-n4 h-100" style="margin: -24px !important; height: calc(100vh - 42px - 32px) !important;">
+    <!-- Left Panel: Device List -->
+    <div class="col-auto h-100 border-end" style="width: 300px; background-color: var(--bg-card);">
+        <div class="p-3 border-bottom">
+            <div class="input-group input-group-sm mb-3">
+                <span class="input-group-text bg-transparent border-end-0 tx3"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control bg-transparent border-start-0" placeholder="Search devices..." id="device-search">
+            </div>
+            
+            <ul class="nav nav-pills nav-justified" id="vendor-filter" style="font-size: 10px;">
+                <li class="nav-item">
+                    <a class="nav-link active py-1" href="#" data-vendor="all">All</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link py-1" href="#" data-vendor="cisco">Cisco</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link py-1" href="#" data-vendor="mikrotik">MT</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link py-1" href="#" data-vendor="juniper">Jun</a>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="overflow-auto h-100 pb-5" id="device-list">
+            <!-- Devices will be injected here -->
+            <div class="p-4 text-center tx3 small">Loading devices...</div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Device Details -->
+    <div class="col h-100 d-flex flex-column bg-app">
+        <div id="no-device-selected" class="flex-1 d-flex flex-column align-items-center justify-content-center tx3">
+            <i class="bi bi-cpu fs-1 mb-3 opacity-25"></i>
+            <p>Select a device from the list to view details</p>
+        </div>
+
+        <div id="device-detail-panel" class="d-none flex-1 overflow-auto">
+            <div class="p-4 bg-card border-bottom">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-accent-bg text-accent rounded p-3 me-3">
+                        <i class="bi bi-router fs-3" id="detail-vendor-icon"></i>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold mb-0" id="detail-hostname">--</h4>
+                        <div class="d-flex align-items-center mt-1">
+                            <span class="badge bg-secondary-subtle text-secondary me-2" id="detail-ip">0.0.0.0</span>
+                            <span class="status-dot bg-success me-2" id="detail-status-dot"></span>
+                            <span class="tx3 small" id="detail-status-text">Online</span>
+                        </div>
+                    </div>
+                    <div class="ms-auto d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="testConnection()">
+                            <i class="bi bi-plug me-1"></i> Test
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="editDevice()">
+                            <i class="bi bi-pencil me-1"></i> Edit
+                        </button>
+                    </div>
+                </div>
+
+                <ul class="nav nav-tabs border-0" id="device-tabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active px-4" data-bs-toggle="tab" data-bs-target="#tab-details">Details</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link px-4" data-bs-toggle="tab" data-bs-target="#tab-config" onclick="loadConfig()">Config</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link px-4" data-bs-toggle="tab" data-bs-target="#tab-push">Push</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link px-4" data-bs-toggle="tab" data-bs-target="#tab-backup">Backup</button>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="p-4">
+                <div class="tab-content" id="device-tab-content">
+                    <!-- Details Tab -->
+                    <div class="tab-pane fade show active" id="tab-details">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label class="tx3 small text-uppercase fw-bold mb-1">Hardware Information</label>
+                                <div class="card bg-deep p-3">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="tx2 small">Vendor Type</span>
+                                        <span class="fw-medium small" id="field-vendor">--</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="tx2 small">Model / Software</span>
+                                        <span class="fw-medium small" id="field-model">--</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="tx2 small">Uptime</span>
+                                        <span class="fw-medium small" id="field-uptime">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="tx3 small text-uppercase fw-bold mb-1">Connection Settings</label>
+                                <div class="card bg-deep p-3">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="tx2 small">Username</span>
+                                        <span class="fw-medium small" id="field-username">--</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="tx2 small">Port</span>
+                                        <span class="fw-medium small" id="field-port">22</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="tx2 small">Last Updated</span>
+                                        <span class="fw-medium small" id="field-updated">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Config Tab -->
+                    <div class="tab-pane fade" id="tab-config">
+                        <div class="d-flex gap-2 mb-3">
+                            <button class="btn btn-sm btn-accent" onclick="loadConfig(true)">
+                                <i class="bi bi-arrow-clockwise me-1"></i> Fetch Latest Config
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="copyConfig()">
+                                <i class="bi bi-copy me-1"></i> Copy
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="downloadConfig()">
+                                <i class="bi bi-download me-1"></i> Download
+                            </button>
+                        </div>
+                        <div class="card p-0 bg-deep border-0 overflow-hidden">
+                            <pre class="m-0 p-3" id="config-output" style="max-height: 500px; font-size: 12px; color: #a5d6ff;">Select 'Fetch' to retrieve running configuration...</pre>
+                        </div>
+                    </div>
+
+                    <!-- Push Tab -->
+                    <div class="tab-pane fade" id="tab-push">
+                        <div class="mb-3">
+                            <label class="form-label tx2 small">Enter commands (one per line)</label>
+                            <textarea class="form-control bg-deep border-0 text-mono" id="push-commands" rows="10" placeholder="conf t&#10;interface eth1&#10;description TEST"></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-accent px-4" onclick="runPush()">
+                                <i class="bi bi-play-fill me-1"></i> Push Configuration
+                            </button>
+                            <button class="btn btn-outline-secondary px-4" onclick="runPush(true)">
+                                Dry Run
+                            </button>
+                        </div>
+                        <div class="card mt-4 p-0 bg-deep border-0 d-none" id="push-output-container">
+                            <div class="card-header border-bottom border-secondary opacity-50 py-2 d-flex justify-content-between align-items-center">
+                                <span class="tx3 small fw-bold">PUSH OUTPUT</span>
+                                <i class="bi bi-x-lg cursor-pointer" onclick="document.getElementById('push-output-container').classList.add('d-none')"></i>
+                            </div>
+                            <pre class="m-0 p-3" id="push-output" style="font-size: 12px; color: #d1d5db;"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Backup Tab -->
+                    <div class="tab-pane fade" id="tab-backup">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h6 class="fw-bold mb-0">Backup History</h6>
+                            <button class="btn btn-sm btn-accent" onclick="runSingleBackup()">
+                                <i class="bi bi-cloud-arrow-down me-1"></i> Backup Now
+                            </button>
+                        </div>
+                        <div class="list-group list-group-flush border rounded overflow-hidden" id="backup-history">
+                            <div class="list-group-item text-center py-4 tx3">No backup history available</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Device Modal -->
+<div class="modal fade" id="editDeviceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-app border-secondary">
+            <div class="modal-header border-bottom border-secondary opacity-75">
+                <h5 class="modal-title tx1">Edit Device</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editDeviceForm">
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Hostname</label>
+                        <input type="text" class="form-control bg-deep border-0 text-white" id="edit-hostname" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">IP Address</label>
+                        <input type="text" class="form-control bg-deep border-0 text-white" id="edit-ip" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Device Type</label>
+                        <select class="form-select bg-deep border-0 text-white" id="edit-type" required>
+                            <option value="cisco_ios">Cisco IOS</option>
+                            <option value="mikrotik_routeros">MikroTik RouterOS</option>
+                            <option value="juniper_junos">Juniper JunOS</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Username</label>
+                        <input type="text" class="form-control bg-deep border-0 text-white" id="edit-username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Password (leave blank to keep current)</label>
+                        <input type="password" class="form-control bg-deep border-0 text-white" id="edit-password">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Secret (leave blank to keep current)</label>
+                        <input type="password" class="form-control bg-deep border-0 text-white" id="edit-secret">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Port</label>
+                        <input type="number" class="form-control bg-deep border-0 text-white" id="edit-port" value="22" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top border-secondary opacity-75">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-accent px-4" onclick="saveDevice()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentDeviceId = null;
+    let devicesData = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDevices();
+        
+        document.getElementById('device-search').addEventListener('input', (e) => {
+            filterDevices(e.target.value);
+        });
+        
+        document.querySelectorAll('#vendor-filter .nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('#vendor-filter .nav-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                filterDevices(document.getElementById('device-search').value, link.dataset.vendor);
+            });
+        });
+    });
+
+    async function loadDevices() {
+        try {
+            devicesData = await apiCall('GET', '/api/devices/');
+            renderDeviceList(devicesData);
+        } catch (err) {
+            document.getElementById('device-list').innerHTML = '<div class="p-4 text-center text-danger small">Failed to load devices</div>';
+        }
+    }
+
+    function renderDeviceList(devices) {
+        const list = document.getElementById('device-list');
+        list.innerHTML = '';
+        
+        if (devices.length === 0) {
+            list.innerHTML = '<div class="p-4 text-center tx3 small">No devices found</div>';
+            return;
+        }
+        
+        devices.forEach(d => {
+            const row = document.createElement('div');
+            row.className = `p-3 border-bottom d-flex align-items-center cursor-pointer device-row ${currentDeviceId == d.id ? 'bg-accent-bg' : ''}`;
+            row.onclick = () => selectDevice(d.id);
+            
+            const vendorIcon = d.device_type.includes('cisco') ? 'bi-router' : (d.device_type.includes('mikrotik') ? 'bi-hdd-network' : 'bi-shield-shaded');
+            
+            row.innerHTML = `
+                <div class="bg-deep rounded p-2 me-3 tx2"><i class="bi ${vendorIcon}"></i></div>
+                <div class="me-auto overflow-hidden">
+                    <div class="fw-semibold small text-truncate">${d.hostname}</div>
+                    <div class="tx3" style="font-size: 10px;">${d.ip_address}</div>
+                </div>
+                <div class="status-dot ${d.is_active ? 'bg-success' : 'bg-danger'}" style="width: 6px; height: 6px;"></div>
+            `;
+            list.appendChild(row);
+        });
+    }
+
+    function filterDevices(search = '', vendor = 'all') {
+        const filtered = devicesData.filter(d => {
+            const matchesSearch = d.hostname.toLowerCase().includes(search.toLowerCase()) || d.ip_address.includes(search);
+            const matchesVendor = vendor === 'all' || d.device_type.includes(vendor);
+            return matchesSearch && matchesVendor;
+        });
+        renderDeviceList(filtered);
+    }
+
+    async function selectDevice(id) {
+        currentDeviceId = id;
+        document.querySelectorAll('.device-row').forEach(r => r.classList.remove('bg-accent-bg'));
+        
+        const device = devicesData.find(d => d.id === id);
+        if (!device) return;
+        
+        document.getElementById('no-device-selected').classList.add('d-none');
+        document.getElementById('device-detail-panel').classList.remove('d-none');
+        
+        // Update basic info
+        document.getElementById('detail-hostname').textContent = device.hostname;
+        document.getElementById('detail-ip').textContent = device.ip_address;
+        document.getElementById('detail-vendor-icon').className = `bi ${device.device_type.includes('cisco') ? 'bi-router' : 'bi-hdd-network'} fs-3`;
+        
+        // Update fields
+        document.getElementById('field-vendor').textContent = device.device_type;
+        document.getElementById('field-username').textContent = device.username;
+        document.getElementById('field-port').textContent = device.port;
+        document.getElementById('field-updated').textContent = new Date(device.updated_at || device.created_at).toLocaleString();
+        
+        // Reset tabs
+        document.getElementById('config-output').textContent = "Select 'Fetch' to retrieve running configuration...";
+        document.getElementById('push-output-container').classList.add('d-none');
+        
+        // Refresh active row styling
+        renderDeviceList(devicesData);
+    }
+
+    function editDevice() {
+        if (!currentDeviceId) return;
+        const device = devicesData.find(d => d.id === currentDeviceId);
+        if (!device) return;
+        
+        document.getElementById('edit-hostname').value = device.hostname || '';
+        document.getElementById('edit-ip').value = device.ip_address || '';
+        document.getElementById('edit-type').value = device.device_type || 'cisco_ios';
+        document.getElementById('edit-username').value = device.username || '';
+        document.getElementById('edit-password').value = '';
+        document.getElementById('edit-secret').value = '';
+        document.getElementById('edit-port').value = device.port || 22;
+        
+        const modal = new bootstrap.Modal(document.getElementById('editDeviceModal'));
+        modal.show();
+    }
+
+    async function saveDevice() {
+        if (!currentDeviceId) return;
+        
+        const payload = {
+            hostname: document.getElementById('edit-hostname').value,
+            ip_address: document.getElementById('edit-ip').value,
+            device_type: document.getElementById('edit-type').value,
+            username: document.getElementById('edit-username').value,
+            port: parseInt(document.getElementById('edit-port').value)
+        };
+        
+        const pwd = document.getElementById('edit-password').value;
+        if (pwd) payload.password = pwd;
+        
+        const sec = document.getElementById('edit-secret').value;
+        if (sec) payload.secret = sec;
+        
+        try {
+            await apiCall('PUT', `/api/devices/${currentDeviceId}`, payload);
+            showToast("Device updated successfully", "success");
+            
+            // Hide modal
+            const modalEl = document.getElementById('editDeviceModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            
+            // Manually remove backdrop if it gets stuck
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) backdrop.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            await loadDevices();
+            selectDevice(currentDeviceId);
+        } catch (err) {
+            // Toast handles error automatically via apiCall
+        }
+    }
+
+    async function testConnection() {
+        if (!currentDeviceId) return;
+        try {
+            showToast("Testing connection...", "info");
+            appendConsole(`Testing connection to ${currentDeviceId}...`, "info");
+            const res = await apiCall('POST', `/api/devices/${currentDeviceId}/test-connection`);
+            if (res.success) {
+                showToast("Connection Successful", "success");
+                appendConsole(`Connection to device ${currentDeviceId} successful.`, "success");
+            } else {
+                showToast(res.error || "Connection Failed", "error");
+                appendConsole(`Connection to device ${currentDeviceId} failed: ${res.error}`, "error");
+            }
+        } catch (err) {}
+    }
+
+    async function loadConfig(force = false) {
+        if (!currentDeviceId) return;
+        const out = document.getElementById('config-output');
+        out.textContent = "Connecting and fetching configuration... Please wait.";
+        
+        try {
+            const res = await apiCall('GET', `/api/devices/${currentDeviceId}/config`);
+            if (res.success) {
+                out.textContent = res.config;
+            } else {
+                out.textContent = "Error: " + res.error;
+            }
+        } catch (err) {
+            out.textContent = "Failed to fetch configuration.";
+        }
+    }
+
+    async function runPush(dryRun = false) {
+        if (!currentDeviceId) return;
+        const cmds = document.getElementById('push-commands').value.split('\n').filter(c => c.trim() !== '');
+        if (cmds.length === 0) return showToast("Enter at least one command", "warning");
+        
+        try {
+            showToast("Pushing configuration...", "info");
+            appendConsole(`Pushing config to ${currentDeviceId}...`, "info");
+            
+            const res = await apiCall('POST', '/api/devices/bulk-push-config', {
+                device_ids: [currentDeviceId],
+                commands: cmds
+            });
+            
+            const outputEl = document.getElementById('push-output');
+            const container = document.getElementById('push-output-container');
+            container.classList.remove('d-none');
+            
+            if (res[0].success) {
+                outputEl.textContent = res[0].output;
+                showToast("Push Completed", "success");
+                appendConsole(`Push to device ${currentDeviceId} completed successfully.`, "success");
+            } else {
+                outputEl.textContent = "Error: " + res[0].error;
+                showToast("Push Failed", "error");
+            }
+            container.scrollIntoView({ behavior: 'smooth' });
+        } catch (err) {}
+    }
+</script>
+<style>
+    .device-row:hover { background-color: var(--bg-row); }
+    .nav-tabs .nav-link { 
+        border: none; 
+        color: var(--tx2); 
+        font-size: 13px; 
+        font-weight: 500; 
+        padding-bottom: 12px;
+        border-bottom: 2px solid transparent;
+    }
+    .nav-tabs .nav-link.active { 
+        background: transparent; 
+        color: var(--accent); 
+        border-bottom-color: var(--accent); 
+    }
+    .text-mono { font-family: 'JetBrains Mono', monospace; }
+</style>
+{% endblock %}

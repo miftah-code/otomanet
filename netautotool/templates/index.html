@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTOMANET | Network Automation Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fira+Code&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">OTOMANET</div>
+            <div class="header-actions">
+                <button class="btn btn-icon" style="background: var(--accent-secondary); color: #fff;" onclick="executeBulkBackup()">📦 Bulk Backup</button>
+                <button class="btn btn-icon" style="background: var(--warning); color: #000;" onclick="openBulkModal()">🚀 Bulk Push</button>
+                <button class="btn btn-primary" onclick="openModal()">+ Add Device</button>
+            </div>
+        </header>
+
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Devices</div>
+                <div id="stat-total" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Online Devices</div>
+                <div id="stat-online" class="stat-value" style="color: var(--success)">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Offline Devices</div>
+                <div id="stat-offline" class="stat-value" style="color: var(--danger)">0</div>
+            </div>
+        </section>
+
+        <section class="device-section">
+            <div class="table-header">
+                <h2>Network Inventory</h2>
+                <button class="btn btn-icon" onclick="loadDevices()">🔄 Refresh</button>
+            </div>
+            <table id="device-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="select-all"></th>
+                        <th>Hostname</th>
+                        <th>IP Address</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="device-list-body"></tbody>
+            </table>
+        </section>
+
+        <section style="margin-top: 3rem;">
+            <h3>Console Output</h3>
+            <div id="terminal" class="console-section"></div>
+        </section>
+    </div>
+
+    <!-- Add Modal -->
+    <div id="device-modal" class="modal">
+        <div class="modal-content">
+            <h2>Add New Device</h2>
+            <form id="add-device-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Hostname</label>
+                        <input type="text" id="host-name" placeholder="R1-IDN" required>
+                    </div>
+                    <div class="form-group">
+                        <label>IP Address</label>
+                        <input type="text" id="ip-addr" placeholder="192.168.1.1" required>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Device Type</label>
+                        <select id="device-type">
+                            <option value="cisco_ios">Cisco IOS</option>
+                            <option value="mikrotik_routeros">MikroTik RouterOS</option>
+                            <option value="juniper_junos">Juniper JunOS</option>
+                            <option value="fortinet_fortios">Fortinet FortiOS</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="user-name" placeholder="admin" required>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="pass-word" placeholder="••••••••" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Enable Secret (Opt)</label>
+                        <input type="password" id="secret-key" placeholder="••••••••">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button type="submit" id="add-btn" class="btn btn-primary" style="flex: 1;">Save Device</button>
+                    <button type="button" class="btn" onclick="closeModal()" style="flex: 1; background: #334155;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bulk Push Modal -->
+    <div id="bulk-modal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <h2>Bulk Push Configuration</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1rem;">Push commands to selected devices.</p>
+            <textarea id="bulk-commands" placeholder="Enter commands (one per line)..." 
+                style="width: 100%; height: 200px; background: #0f172a; color: #fff; border: 1px solid var(--glass-border); padding: 1rem; border-radius: 0.5rem; font-family: 'Fira Code', monospace;"></textarea>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button class="btn btn-primary" onclick="executeBulkPush()" style="flex: 1;">🚀 Execute Now</button>
+                <button class="btn" onclick="closeBulkModal()" style="flex: 1; background: #334155;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <h2>Edit Device</h2>
+            <form id="edit-device-form">
+                <input type="hidden" id="edit-id">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Hostname</label>
+                        <input type="text" id="edit-host-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>IP Address</label>
+                        <input type="text" id="edit-ip-addr" required>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Device Type</label>
+                        <select id="edit-device-type">
+                            <option value="cisco_ios">Cisco IOS</option>
+                            <option value="mikrotik_routeros">MikroTik RouterOS</option>
+                            <option value="juniper_junos">Juniper JunOS</option>
+                            <option value="fortinet_fortios">Fortinet FortiOS</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="edit-user-name" required>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <input type="password" id="edit-pass-word" placeholder="Leave blank to keep current">
+                    </div>
+                    <div class="form-group">
+                        <label>New Secret (Opt)</label>
+                        <input type="password" id="edit-secret-key" placeholder="Leave blank to keep current">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button type="button" id="edit-btn" class="btn btn-primary" style="flex: 1;" onclick="handleUpdateSubmit()">Update Device</button>
+                    <button type="button" class="btn" onclick="closeEditModal()" style="flex: 1; background: #334155;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

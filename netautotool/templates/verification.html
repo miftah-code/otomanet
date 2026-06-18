@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% block title %}Verification{% endblock %}
+{% block breadcrumb %}Operations / Verification{% endblock %}
+
+{% block content %}
+<div class="row g-0 m-n4 h-100" style="margin: -24px !important; height: calc(100vh - 42px - 32px) !important;">
+    <!-- Left Panel: Templates -->
+    <div class="col-auto h-100 border-end" style="width: 270px; background-color: var(--bg-card);">
+        <div class="p-3 border-bottom d-flex align-items-center">
+            <h6 class="fw-bold mb-0 me-auto">Templates</h6>
+            <button class="btn btn-xs btn-outline-accent py-0 px-2" style="font-size: 10px;" onclick="showAddTemplateModal()">
+                <i class="bi bi-plus"></i> Add
+            </button>
+        </div>
+        <div class="p-2">
+            <div class="input-group input-group-sm mb-2">
+                <span class="input-group-text bg-transparent border-end-0 tx3"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control bg-transparent border-start-0" placeholder="Search templates..." id="template-search">
+            </div>
+        </div>
+        <div class="overflow-auto h-100 pb-5" id="template-list">
+            <!-- Templates will be injected here -->
+        </div>
+    </div>
+
+    <!-- Right Panel: Run Verification -->
+    <div class="col h-100 d-flex flex-column overflow-auto p-4 bg-app">
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <h6 class="fw-bold mb-0 me-auto">1. Select Devices</h6>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="selectAllDevices(true)">All</button>
+                            <button class="btn btn-outline-secondary" onclick="selectAllDevices(false)">None</button>
+                        </div>
+                    </div>
+                    <div class="overflow-auto border rounded bg-deep" style="max-height: 200px;" id="device-selection-list">
+                        <!-- Checkbox list of devices -->
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <h6 class="fw-bold mb-3">2. Commands to Verify</h6>
+                    <textarea class="form-control bg-deep border-0 text-mono mb-3" id="verification-commands" rows="6" placeholder="show ip interface brief&#10;show version"></textarea>
+                    <div class="mt-auto d-flex gap-2">
+                        <button class="btn btn-accent flex-1 py-2" id="btn-run-verify" onclick="runVerification()">
+                            <i class="bi bi-play-fill me-1"></i> Run Verification
+                        </button>
+                        <button class="btn btn-outline-secondary py-2" onclick="saveAsTemplate()">
+                            <i class="bi bi-bookmark me-1"></i> Save as Template
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Panel -->
+        <div id="progress-panel" class="card d-none mb-4 border-accent-bd">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div>
+                    <h6 class="fw-bold mb-1">Verification Progress</h6>
+                    <div class="tx3 small" id="overall-status">Running tasks...</div>
+                </div>
+                <div class="text-accent fw-bold fs-4" id="overall-pct">0%</div>
+            </div>
+            <div class="progress mb-4" style="height: 6px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated bg-accent" role="progressbar" style="width: 0%" id="overall-progress-bar"></div>
+            </div>
+            <div class="row g-2" id="device-progress-grid">
+                <!-- Per device progress injected here -->
+            </div>
+        </div>
+
+        <!-- Output Panel -->
+        <div id="output-panel" class="d-none">
+            <div class="d-flex align-items-center mb-3">
+                <h6 class="fw-bold mb-0 me-auto">Verification Results</h6>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" onclick="copyAllResults()"><i class="bi bi-copy me-1"></i> Copy All</button>
+                    <button class="btn btn-outline-secondary" onclick="printRawResults()"><i class="bi bi-printer me-1"></i> Print</button>
+                </div>
+            </div>
+            <div id="results-container">
+                <!-- Code blocks per device -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Template Modal -->
+<div class="modal fade" id="addTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-card border">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title">New Command Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="template-form">
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Template Name</label>
+                        <input type="text" class="form-control bg-deep border-0" id="tpl-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Vendor Type</label>
+                        <select class="form-select bg-deep border-0" id="tpl-vendor">
+                            <option value="all">All Vendors</option>
+                            <option value="cisco_ios">Cisco IOS</option>
+                            <option value="mikrotik_routeros">MikroTik RouterOS</option>
+                            <option value="juniper_junos">Juniper Junos</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Commands</label>
+                        <textarea class="form-control bg-deep border-0 text-mono" id="tpl-commands" rows="4" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-accent" onclick="submitTemplate()">Save Template</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let devices = [];
+    let templates = [];
+    let activeTasks = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadInitialData();
+    });
+
+    async function loadInitialData() {
+        try {
+            [devices, templates] = await Promise.all([
+                apiCall('GET', '/api/devices/'),
+                apiCall('GET', '/api/verification/templates')
+            ]);
+            renderDevices();
+            renderTemplates();
+        } catch (err) {}
+    }
+
+    function renderDevices() {
+        const list = document.getElementById('device-selection-list');
+        list.innerHTML = '';
+        devices.forEach(d => {
+            const item = `
+                <div class="p-2 border-bottom border-secondary opacity-75 d-flex align-items-center">
+                    <input class="form-check-input me-3 device-checkbox" type="checkbox" value="${d.id}" id="chk-${d.id}">
+                    <label class="form-check-label small flex-1 cursor-pointer" for="chk-${d.id}">
+                        <span class="fw-medium">${d.hostname}</span>
+                        <span class="tx3 ms-2" style="font-size: 10px;">${d.ip_address}</span>
+                    </label>
+                    <span class="badge ${d.is_active ? 'bg-success' : 'bg-danger'} rounded-circle p-1" style="width: 6px; height: 6px;"></span>
+                </div>
+            `;
+            list.insertAdjacentHTML('beforeend', item);
+        });
+    }
+
+    function renderTemplates() {
+        const list = document.getElementById('template-list');
+        list.innerHTML = '';
+        templates.forEach(t => {
+            const item = `
+                <div class="p-2 border-bottom border-secondary opacity-50 cursor-pointer template-item" onclick="applyTemplate(${t.id})">
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="fw-bold small me-auto text-truncate">${t.name}</span>
+                        <span class="badge bg-accent-bg text-accent" style="font-size: 8px;">${t.vendor_type}</span>
+                    </div>
+                    <div class="tx3 text-truncate" style="font-size: 10px;">${t.command.substring(0, 40)}...</div>
+                </div>
+            `;
+            list.insertAdjacentHTML('beforeend', item);
+        });
+    }
+
+    function applyTemplate(id) {
+        const t = templates.find(x => x.id === id);
+        if (t) document.getElementById('verification-commands').value = t.command;
+    }
+
+    function selectAllDevices(val) {
+        document.querySelectorAll('.device-checkbox').forEach(c => c.checked = val);
+    }
+
+    async function runVerification() {
+        const selectedIds = Array.from(document.querySelectorAll('.device-checkbox:checked')).map(c => parseInt(c.value));
+        const commands = document.getElementById('verification-commands').value.split('\n').filter(c => c.trim() !== '');
+        
+        if (selectedIds.length === 0) return showToast("Select at least one device", "warning");
+        if (commands.length === 0) return showToast("Enter at least one command", "warning");
+
+        try {
+            document.getElementById('btn-run-verify').disabled = true;
+            document.getElementById('progress-panel').classList.remove('d-none');
+            document.getElementById('output-panel').classList.add('d-none');
+            document.getElementById('results-container').innerHTML = '';
+            document.getElementById('device-progress-grid').innerHTML = '';
+            
+            appendConsole(`Starting verification on ${selectedIds.length} devices...`, "info");
+            
+            const res = await apiCall('POST', '/api/verification/run', {
+                device_ids: selectedIds,
+                commands: commands
+            });
+
+            activeTasks = res.tasks;
+            
+            // Render progress grid
+            activeTasks.forEach(t => {
+                const device = devices.find(d => d.id === t.device_id);
+                const gridItem = `
+                    <div class="col-md-4" data-device-id="${t.device_id}">
+                        <div class="bg-deep p-2 rounded d-flex align-items-center" data-device="${device.hostname}">
+                            <i class="bi bi-arrow-repeat spin text-accent me-2 status-icon"></i>
+                            <div class="flex-1 overflow-hidden">
+                                <div class="tx2" style="font-size: 11px;">${device.hostname}</div>
+                                <div class="progress" style="height: 4px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-accent" style="width: 5%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('device-progress-grid').insertAdjacentHTML('beforeend', gridItem);
+            });
+
+            startPolling();
+        } catch (err) {
+            document.getElementById('btn-run-verify').disabled = false;
+        }
+    }
+
+    function updateProgress(hostname, pct, status) {
+        const item = document.querySelector(`[data-device="${hostname}"]`);
+        if (!item) return;
+        
+        const bar = item.querySelector('.progress-bar');
+        const icon = item.querySelector('.status-icon');
+        
+        bar.style.width = `${pct}%`;
+        if (status === 'done') {
+            icon.classList.remove('bi-arrow-repeat', 'spin', 'text-accent');
+            icon.classList.add('bi-check-circle-fill', 'text-success');
+        } else if (status === 'error') {
+            icon.classList.remove('bi-arrow-repeat', 'spin', 'text-accent');
+            icon.classList.add('bi-exclamation-circle-fill', 'text-danger');
+            bar.classList.add('bg-danger');
+        }
+    }
+
+    function startPolling() {
+        const interval = setInterval(async () => {
+            let completedCount = 0;
+            
+            for (let t of activeTasks) {
+                if (t.done) {
+                    completedCount++;
+                    continue;
+                }
+                
+                try {
+                    const status = await apiCall('GET', `/api/verification/status/${t.task_id}`);
+                    const device = devices.find(d => d.id === t.device_id);
+                    
+                    if (status.status === 'SUCCESS') {
+                        t.done = true;
+                        updateProgress(device.hostname, 100, 'done');
+                        renderResult(device, status.result);
+                        completedCount++;
+                    } else if (status.status === 'FAILURE') {
+                        t.done = true;
+                        updateProgress(device.hostname, 100, 'error');
+                        renderResult(device, {success: false, error: "Task Failed"}, true);
+                        completedCount++;
+                    }
+                } catch (e) {}
+            }
+            
+            const overallPct = Math.round((completedCount / activeTasks.length) * 100);
+            document.getElementById('overall-pct').textContent = `${overallPct}%`;
+            document.getElementById('overall-progress-bar').style.width = `${overallPct}%`;
+            
+            if (completedCount === activeTasks.length) {
+                clearInterval(interval);
+                document.getElementById('btn-run-verify').disabled = false;
+                document.getElementById('overall-status').textContent = 'Verification Completed';
+                document.getElementById('output-panel').classList.remove('d-none');
+                showToast("Verification Completed", "success");
+                appendConsole("All verification tasks finished.", "success");
+            }
+        }, 2000);
+    }
+
+    function renderResult(device, result, isError = false) {
+        const container = document.getElementById('results-container');
+        const color = isError ? 'text-danger' : 'text-success';
+        const section = `
+            <div class="card p-0 bg-deep border-0 mb-3 overflow-hidden verification-card" data-hostname="${device.hostname}">
+                <div class="card-header py-2 d-flex align-items-center border-bottom border-secondary opacity-50">
+                    <span class="fw-bold small me-2">${device.hostname}</span>
+                    <span class="tx3 fs-xs me-auto">(${device.ip_address})</span>
+                    <span class="small ${color} fw-medium">${isError ? 'FAILED' : 'SUCCESS'}</span>
+                </div>
+                <pre class="m-0 p-3 verification-output text-mono" style="font-size: 11px; color: #d1d5db; max-height: 400px; overflow-y: auto; white-space: pre-wrap;">${(result.output || result.config || result.error || 'No output').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', section);
+    }
+
+    function copyAllResults() {
+        const outputs = Array.from(document.querySelectorAll('.verification-output'))
+            .map(pre => pre.innerText)
+            .join("\n" + "=".repeat(40) + "\n");
+        
+        if (!outputs) return showToast("No results to copy", "warning");
+        
+        const textArea = document.createElement("textarea");
+        textArea.value = outputs;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showToast("All results copied to clipboard", "success");
+        } catch (err) {
+            showToast("Failed to copy", "error");
+        }
+        document.body.removeChild(textArea);
+    }
+
+    function printRawResults() {
+        const outputs = Array.from(document.querySelectorAll('.verification-output'))
+            .map(pre => pre.innerText)
+            .join("\n" + "=".repeat(60) + "\n");
+            
+        if (!outputs) return showToast("No results to print", "warning");
+        
+        const printWin = window.open('', '_blank');
+        const escapedOutput = outputs.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        printWin.document.write(`
+            <html>
+                <head>
+                    <title>Verification Report - OTOMANET</title>
+                    <style>
+                        body { font-family: 'JetBrains Mono', 'Courier New', monospace; padding: 30px; font-size: 12px; background: #fff; color: #000; line-height: 1.4; }
+                        pre { white-space: pre-wrap; word-wrap: break-word; border-bottom: 1px dashed #ccc; padding-bottom: 20px; margin-bottom: 20px; }
+                        .header { margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h2 style="margin:0">OTOMANET Verification Report</h2>
+                        <small>Generated on: ${new Date().toLocaleString()}</small>
+                    </div>
+                    <pre>${escapedOutput}</pre>
+                    <script>window.onload = function() { window.print(); window.close(); }<\/script>
+                </body>
+            </html>
+        `);
+        printWin.document.close();
+    }
+
+    function showAddTemplateModal() {
+        new bootstrap.Modal(document.getElementById('addTemplateModal')).show();
+    }
+
+    async function submitTemplate() {
+        const data = {
+            name: document.getElementById('tpl-name').value,
+            vendor_type: document.getElementById('tpl-vendor').value,
+            command: document.getElementById('tpl-commands').value
+        };
+        
+        try {
+            await apiCall('POST', '/api/verification/templates', data);
+            showToast("Template saved", "success");
+            bootstrap.Modal.getInstance(document.getElementById('addTemplateModal')).hide();
+            loadInitialData();
+        } catch (err) {}
+    }
+</script>
+<style>
+    .template-item:hover { background-color: var(--bg-row); }
+    .spin { display: inline-block; animation: fa-spin 2s infinite linear; }
+    @keyframes fa-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(359deg); } }
+    .btn-xs { padding: 1px 5px; font-size: 11px; }
+    .btn-outline-accent { border-color: var(--accent); color: var(--accent); }
+    .btn-outline-accent:hover { background: var(--accent); color: #fff; }
+</style>
+{% endblock %}

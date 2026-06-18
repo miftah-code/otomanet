@@ -1,0 +1,36 @@
+enable
+configure terminal
+
+! ---------------------------------------------------------
+! OTOMANET - Cisco IOS SSH Pre-configuration Template
+! ---------------------------------------------------------
+
+! 1. Hostname & Domain (Required for SSH Keys)
+! Ganti hostname sesuai kebutuhan Anda
+hostname R1-IDN-MKT-01
+ip domain-name otomanet.local
+
+! 2. Generate RSA Key
+! Pilih modulus 1024 atau lebih tinggi
+crypto key generate rsa
+1024
+
+! 3. Enable SSH Version 2
+ip ssh version 2
+
+! 4. Create Local User (Privilege 15 untuk akses penuh)
+! Ganti 'admin' dan 'admin123' sesuai kredensial Anda
+username admin privilege 15 secret admin123
+
+! 5. Set Enable Secret (Wajib untuk Netmiko mode 'enable')
+enable secret admin123
+
+! 6. Configure VTY Lines for SSH Access
+line vty 0 4
+ login local
+ transport input ssh
+ exit
+
+! 7. Save Configuration
+end
+write memory

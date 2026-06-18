@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+
+{% block title %}Jobs Monitoring{% endblock %}
+{% block breadcrumb %}Management / Jobs{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="d-flex align-items-center mb-4">
+        <h4 class="fw-bold mb-0 me-auto">Jobs & Task Monitoring</h4>
+        <div class="btn-group">
+            <button class="btn btn-accent px-3 me-2" onclick="showAddJobModal()">
+                <i class="bi bi-plus-circle me-1"></i> Add New Job
+            </button>
+            <button class="btn btn-outline-secondary px-3" onclick="loadJobs()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-pills mb-4" id="jobTabs" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active px-4" data-bs-toggle="tab" data-bs-target="#active-jobs">
+                <i class="bi bi-play-circle me-2"></i>Active Jobs
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link px-4" data-bs-toggle="tab" data-bs-target="#scheduled-jobs">
+                <i class="bi bi-calendar-event me-2"></i>Scheduled
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link px-4" data-bs-toggle="tab" data-bs-target="#history-jobs">
+                <i class="bi bi-clock-history me-2"></i>History
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Active Jobs -->
+        <div class="tab-pane fade show active" id="active-jobs">
+            <div class="card p-0 overflow-hidden">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-deep">
+                        <tr>
+                            <th class="ps-4">Task Name</th>
+                            <th>ID</th>
+                            <th>Target / Args</th>
+                            <th>Started</th>
+                            <th>Worker</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="active-jobs-body">
+                        <tr><td colspan="6" class="text-center py-5 tx3">No active tasks</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Scheduled Jobs -->
+        <div class="tab-pane fade" id="scheduled-jobs">
+            <div class="card p-0 overflow-hidden">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-deep">
+                        <tr>
+                            <th class="ps-4">Job Name</th>
+                            <th>Type</th>
+                            <th>Task</th>
+                            <th>Schedule / Run At</th>
+                            <th>Status</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scheduled-jobs-body">
+                        <tr><td colspan="6" class="text-center py-5 tx3">Loading schedule...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="tab-pane fade" id="history-jobs">
+            <div class="card p-0 overflow-hidden">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-deep">
+                        <tr>
+                            <th class="ps-4">Action</th>
+                            <th>Target</th>
+                            <th>User</th>
+                            <th>Timestamp</th>
+                            <th>Duration</th>
+                            <th class="text-end pe-4">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-jobs-body">
+                        <tr><td colspan="6" class="text-center py-5 tx3">Loading history...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Job Modal -->
+<div class="modal fade" id="addJobModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-card border">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title">Create New Job</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="job-form">
+                    <div class="row">
+                        <div class="col-md-7 mb-3">
+                            <label class="form-label tx2 small">Job Name</label>
+                            <input type="text" class="form-control bg-deep border-0" id="job-name" placeholder="e.g. Daily Backup" required>
+                        </div>
+                        <div class="col-md-5 mb-3">
+                            <label class="form-label tx2 small">Job Type</label>
+                            <select class="form-select bg-deep border-0" id="job-type" onchange="toggleJobTypeFields()">
+                                <option value="RECURRING">Recurring (Scheduled)</option>
+                                <option value="ONE_TIME">One-time (Specific Date)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Task Type</label>
+                        <select class="form-select bg-deep border-0" id="job-task-type" onchange="toggleTaskFields()">
+                            <option value="BACKUP">Auto Backup (Selected Devices)</option>
+                            <option value="STATUS_CHECK">Connection Status Check</option>
+                            <option value="HEALTH_CHECK">Detailed Health Check</option>
+                            <option value="CUSTOM">Custom Command Task</option>
+                        </select>
+                    </div>
+
+                    <!-- Custom Commands (Hidden by default) -->
+                    <div id="custom-task-fields" class="d-none mb-3">
+                        <label class="form-label tx2 small">Custom Commands (One per line)</label>
+                        <textarea class="form-control bg-deep border-0 text-mono" id="job-custom-commands" rows="4" placeholder="show ip int br&#10;show version"></textarea>
+                    </div>
+
+                    <!-- Device Selection -->
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Target Devices</label>
+                        <div class="overflow-auto border rounded bg-deep p-2" style="max-height: 150px;" id="job-device-list">
+                            <!-- Device checkboxes injected here -->
+                        </div>
+                        <div class="mt-2 small tx3">
+                            <a href="javascript:void(0)" onclick="selectAllJobDevices(true)">All</a> | 
+                            <a href="javascript:void(0)" onclick="selectAllJobDevices(false)">None</a>
+                        </div>
+                    </div>
+
+                    <!-- Schedule Fields -->
+                    <div id="recurring-fields">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label tx2 small">Schedule Type</label>
+                                <select class="form-select bg-deep border-0" id="job-schedule-type">
+                                    <option value="INTERVAL">Interval (Seconds)</option>
+                                    <option value="CRON">Cron Expression</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label tx2 small">Value</label>
+                                <input type="text" class="form-control bg-deep border-0" id="job-schedule-value" placeholder="e.g. 3600">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- One-time Fields (Hidden by default) -->
+                    <div id="one-time-fields" class="d-none">
+                        <div class="mb-3">
+                            <label class="form-label tx2 small">Run At</label>
+                            <input type="datetime-local" class="form-control bg-deep border-0" id="job-run-at">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Description</label>
+                        <textarea class="form-control bg-deep border-0" id="job-desc" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-accent" onclick="submitJob()">Create Job</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let devices = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadInitialData();
+        loadJobs();
+        // Auto refresh active jobs every 5 seconds
+        setInterval(() => {
+            if (document.querySelector('#active-jobs.active')) loadActiveJobs();
+        }, 5000);
+    });
+
+    async function loadInitialData() {
+        try {
+            devices = await apiCall('GET', '/api/devices/');
+            renderDeviceSelection();
+        } catch (e) {}
+    }
+
+    function renderDeviceSelection() {
+        const container = document.getElementById('job-device-list');
+        container.innerHTML = '';
+        devices.forEach(d => {
+            container.insertAdjacentHTML('beforeend', `
+                <div class="form-check small">
+                    <input class="form-check-input job-device-checkbox" type="checkbox" value="${d.id}" id="job-device-${d.id}">
+                    <label class="form-check-label tx2" for="job-device-${d.id}">
+                        ${d.hostname} <span class="tx3 opacity-50 ms-1">(${d.ip_address})</span>
+                    </label>
+                </div>
+            `);
+        });
+    }
+
+    function selectAllJobDevices(val) {
+        document.querySelectorAll('.job-device-checkbox').forEach(c => c.checked = val);
+    }
+
+    function toggleJobTypeFields() {
+        const type = document.getElementById('job-type').value;
+        const recurringFields = document.getElementById('recurring-fields');
+        const oneTimeFields = document.getElementById('one-time-fields');
+        
+        if (type === 'RECURRING') {
+            recurringFields.classList.remove('d-none');
+            oneTimeFields.classList.add('d-none');
+        } else {
+            recurringFields.classList.add('d-none');
+            oneTimeFields.classList.remove('d-none');
+        }
+    }
+
+    function toggleTaskFields() {
+        const taskType = document.getElementById('job-task-type').value;
+        const customFields = document.getElementById('custom-task-fields');
+        if (taskType === 'CUSTOM') {
+            customFields.classList.remove('d-none');
+        } else {
+            customFields.classList.add('d-none');
+        }
+    }
+
+    function loadJobs() {
+        loadActiveJobs();
+        loadScheduledJobs();
+        loadHistoryJobs();
+    }
+
+    async function loadActiveJobs() {
+        try {
+            const data = await apiCall('GET', '/api/jobs/active');
+            const body = document.getElementById('active-jobs-body');
+            body.innerHTML = '';
+            
+            if (data.length === 0) {
+                body.innerHTML = '<tr><td colspan="6" class="text-center py-4 tx3">No active tasks</td></tr>';
+                return;
+            }
+
+            data.forEach(j => {
+                body.insertAdjacentHTML('beforeend', `
+                    <tr>
+                        <td class="ps-4 fw-bold text-accent">${j.name}</td>
+                        <td class="text-mono small tx3">${j.id.substring(0,8)}...</td>
+                        <td class="tx2 small text-truncate" style="max-width: 200px;">${j.args}</td>
+                        <td class="tx2 small">${j.time_start || 'Just now'}</td>
+                        <td class="tx3 small">${j.worker}</td>
+                        <td class="text-end pe-4">
+                            <button class="btn btn-xs btn-outline-danger" onclick="cancelActiveTask('${j.id}')">Cancel</button>
+                        </td>
+                    </tr>
+                `);
+            });
+        } catch (e) {}
+    }
+
+    async function loadScheduledJobs() {
+        try {
+            const data = await apiCall('GET', '/api/jobs/scheduled');
+            const body = document.getElementById('scheduled-jobs-body');
+            body.innerHTML = '';
+            
+            if (data.length === 0) {
+                body.innerHTML = '<tr><td colspan="6" class="text-center py-4 tx3">No scheduled jobs</td></tr>';
+                return;
+            }
+
+            data.forEach(s => {
+                const statusBadge = s.is_active 
+                    ? '<span class="badge bg-success-subtle text-success">Enabled</span>' 
+                    : '<span class="badge bg-secondary-subtle text-secondary">Paused</span>';
+                
+                const typeBadge = s.job_type === 'ONE_TIME' 
+                    ? '<span class="badge bg-info-subtle text-info">One-time</span>' 
+                    : '<span class="badge bg-primary-subtle text-primary">Recurring</span>';
+
+                const toggleIcon = s.is_active ? 'bi-pause-fill' : 'bi-play-fill';
+                const toggleBtnClass = s.is_active ? 'btn-outline-warning' : 'btn-outline-success';
+                
+                const scheduleDisplay = s.job_type === 'ONE_TIME' 
+                    ? (s.run_at ? new Date(s.run_at).toLocaleString() : 'Not set')
+                    : `${s.schedule_value} (${s.schedule_type})`;
+
+                body.insertAdjacentHTML('beforeend', `
+                    <tr>
+                        <td class="ps-4 fw-medium">${s.name}</td>
+                        <td>${typeBadge}</td>
+                        <td class="tx2 small">${s.task_type}</td>
+                        <td class="text-accent small fw-bold">${scheduleDisplay}</td>
+                        <td>${statusBadge}</td>
+                        <td class="text-end pe-4">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-accent" onclick="startJobNow(${s.id})" title="Run Now">
+                                    <i class="bi bi-lightning-fill"></i>
+                                </button>
+                                <button class="btn ${toggleBtnClass}" onclick="toggleJob(${s.id})" title="${s.is_active ? 'Pause' : 'Resume'}">
+                                    <i class="bi ${toggleIcon}"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="deleteJob(${s.id})" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `);
+            });
+        } catch (e) {}
+    }
+
+    async function loadHistoryJobs() {
+        try {
+            const data = await apiCall('GET', '/api/jobs/history');
+            const body = document.getElementById('history-jobs-body');
+            body.innerHTML = '';
+            
+            data.forEach(h => {
+                body.insertAdjacentHTML('beforeend', `
+                    <tr>
+                        <td class="ps-4 fw-bold">${h.action}</td>
+                        <td class="tx2 small">${h.target}</td>
+                        <td class="tx2 small">${h.user}</td>
+                        <td class="tx3 small">${new Date(h.timestamp).toLocaleString()}</td>
+                        <td class="tx3 small">--</td>
+                        <td class="text-end pe-4"><span class="badge bg-success-subtle text-success">Success</span></td>
+                    </tr>
+                `);
+            });
+        } catch (e) {}
+    }
+
+    function showAddJobModal() {
+        new bootstrap.Modal(document.getElementById('addJobModal')).show();
+    }
+
+    async function submitJob() {
+        const deviceIds = Array.from(document.querySelectorAll('.job-device-checkbox:checked')).map(c => parseInt(c.value));
+        
+        const data = {
+            name: document.getElementById('job-name').value,
+            job_type: document.getElementById('job-type').value,
+            task_type: document.getElementById('job-task-type').value,
+            schedule_type: document.getElementById('job-schedule-type').value,
+            schedule_value: document.getElementById('job-schedule-value').value,
+            run_at: document.getElementById('job-run-at').value,
+            device_ids: deviceIds,
+            custom_commands: document.getElementById('job-custom-commands').value,
+            description: document.getElementById('job-desc').value
+        };
+
+        if (!data.name) return showToast("Job Name is required", "warning");
+        if (deviceIds.length === 0) return showToast("Select at least one target device", "warning");
+
+        try {
+            await apiCall('POST', '/api/jobs', data);
+            showToast("Job created successfully", "success");
+            bootstrap.Modal.getInstance(document.getElementById('addJobModal')).hide();
+            loadJobs();
+        } catch (e) {}
+    }
+
+    async function startJobNow(id) {
+        try {
+            const res = await apiCall('POST', `/api/jobs/${id}/start`);
+            showToast(res.message, "success");
+            loadJobs();
+        } catch (e) {}
+    }
+
+    async function toggleJob(id) {
+        try {
+            await apiCall('POST', `/api/jobs/${id}/toggle`);
+            showToast("Job status updated", "info");
+            loadJobs();
+        } catch (e) {}
+    }
+
+    async function deleteJob(id) {
+        if (!confirm("Are you sure you want to delete this job?")) return;
+        try {
+            await apiCall('DELETE', `/api/jobs/${id}`);
+            showToast("Job deleted", "info");
+            loadJobs();
+        } catch (e) {}
+    }
+
+    async function cancelActiveTask(celeryId) {
+        if (!confirm("Are you sure you want to cancel this active task?")) return;
+        try {
+            await apiCall('DELETE', `/api/jobs/${celeryId}`);
+            showToast("Task cancellation signal sent", "info");
+            loadActiveJobs();
+        } catch (e) {}
+    }
+</script>
+<style>
+    .nav-pills .nav-link { color: var(--tx2); background: transparent; border: 1px solid transparent; font-weight: 500; font-size: 13px; }
+    .nav-pills .nav-link.active { background-color: var(--accent-bg); color: var(--accent); border-color: var(--accent-bd); }
+    .table th { border-top: none; font-size: 11px; text-transform: uppercase; color: var(--tx3); font-weight: 700; padding: 12px 16px; }
+    .table td { border-bottom: 1px solid var(--border); padding: 12px 16px; vertical-align: middle; }
+    .btn-xs { padding: 1px 5px; font-size: 11px; }
+    .text-mono { font-family: 'JetBrains Mono', monospace; }
+</style>
+{% endblock %}
