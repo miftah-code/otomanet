@@ -27,8 +27,8 @@ class NetmikoHandler:
             "password": device_data.get("password"),
             "secret": device_data.get("secret"),
             "port": device_data.get("port", 22),
-            "timeout": 60,
-            "global_delay_factor": 2,
+            "timeout": 20,
+            "global_delay_factor": 0.5,
         }
         
         # Map our internal device types to Netmiko's expected device_types
@@ -127,6 +127,7 @@ class NetmikoHandler:
 
     def test_connection(self) -> Dict:
         try:
+            self.connection_params["timeout"] = 5
             if self.connect():
                 self.disconnect()
                 return {"success": True, "message": "Connected successfully"}

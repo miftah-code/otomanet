@@ -19,7 +19,6 @@
     .device-card:hover {
         border-color: var(--accent) !important;
         background-color: var(--bg-row);
-        cursor: pointer;
     }
     #terminal-overlay {
         position: fixed;
@@ -60,6 +59,56 @@
     .xterm-viewport {
         overflow-y: auto !important;
     }
+    
+    /* Web GUI Window Styles */
+    #webgui-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.75);
+        backdrop-filter: blur(8px);
+        z-index: 2000;
+        padding: 20px;
+        display: none;
+        transition: all 0.3s ease;
+    }
+    #webgui-overlay.minimized {
+        top: auto !important;
+        left: auto !important;
+        right: 20px !important;
+        bottom: 20px !important;
+        width: 480px !important;
+        height: 340px !important;
+        padding: 0 !important;
+        backdrop-filter: none !important;
+        background: transparent !important;
+    }
+    #webgui-overlay.minimized .gui-modal {
+        height: 100% !important;
+        border-color: var(--accent) !important;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.7) !important;
+    }
+    .gui-modal {
+        background: var(--bg-app);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        overflow: hidden;
+    }
+    .gui-header {
+        padding: 10px 20px;
+        background: #1a1a1a;
+        border-bottom: 1px solid #333;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #fff;
+    }
 </style>
 {% endblock %}
 
@@ -97,6 +146,38 @@
     </div>
 </div>
 
+<!-- Web GUI Overlay -->
+<div id="webgui-overlay">
+    <div class="gui-modal">
+        <div class="gui-header">
+            <div class="d-flex align-items-center gap-3">
+                <i class="bi bi-globe text-accent me-1"></i>
+                <span class="fw-bold" id="active-gui-name">Web GUI</span>
+                <!-- Protocol Switcher -->
+                <div class="btn-group btn-group-sm" role="group">
+                    <button class="btn btn-xs btn-outline-secondary active py-0 px-2" id="btn-proto-http" onclick="switchGuiProtocol('http')">HTTP</button>
+                    <button class="btn btn-xs btn-outline-secondary py-0 px-2" id="btn-proto-https" onclick="switchGuiProtocol('https')">HTTPS</button>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary" onclick="minimizeGuiWindow()" id="gui-minimize-btn" title="Minimize Window">
+                    <i class="bi bi-dash-lg"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="toggleGuiSize()" id="gui-resize-btn" title="Toggle Fullscreen">
+                    <i class="bi bi-arrows-fullscreen"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="openGuiNewTab()" title="Open in New Tab">
+                    <i class="bi bi-box-arrow-up-right"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="closeGuiWindow()">Close</button>
+            </div>
+        </div>
+        <div class="flex-1 overflow-hidden position-relative" style="background: #fff; height: 100%;">
+            <iframe id="gui-iframe" src="" style="width: 100%; height: 100%; border: none; background: #fff;" sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts"></iframe>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -127,25 +208,116 @@
         devices.forEach(d => {
             const card = `
                 <div class="col-md-4 col-lg-3">
-                    <div class="card h-100 device-card" onclick="connectToDevice(${d.id})">
+                    <div class="card h-100 device-card p-3 d-flex flex-column" style="border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card);">
                         <div class="d-flex align-items-start mb-3">
-                            <div class="p-2 bg-accent-bg rounded me-3">
-                                <i class="bi bi-hdd-network text-accent fs-5"></i>
+                            <div class="p-2 bg-accent-bg rounded me-3 text-accent">
+                                <i class="bi bi-hdd-network fs-5"></i>
                             </div>
                             <div class="overflow-hidden">
-                                <h6 class="fw-bold mb-0 text-truncate">${d.hostname}</h6>
+                                <h6 class="fw-bold mb-0 text-truncate tx1" style="font-size: 14px;">${d.hostname}</h6>
                                 <div class="tx3 small">${d.ip_address}</div>
                             </div>
                         </div>
-                        <div class="mt-auto d-flex align-items-center justify-content-between">
+                        <div class="mb-3">
                             <span class="badge bg-deep text-secondary border border-secondary opacity-75 small">${d.device_type}</span>
-                            <i class="bi bi-chevron-right tx3"></i>
+                        </div>
+                        <div class="mt-auto d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-primary flex-1 py-1.5" onclick="connectToDevice(${d.id})" style="font-size: 11px; font-weight: 600;">
+                                <i class="bi bi-terminal me-1"></i> SSH
+                            </button>
+                            <button class="btn btn-sm btn-accent flex-1 py-1.5" onclick="connectToWebGUI('${d.ip_address}', '${d.hostname}')" style="font-size: 11px; font-weight: 600;">
+                                <i class="bi bi-globe me-1"></i> Web GUI
+                            </button>
                         </div>
                     </div>
                 </div>
             `;
             grid.insertAdjacentHTML('beforeend', card);
         });
+    }
+
+    let isGuiMinimized = false;
+    let activeGuiIp = '';
+    let activeGuiProtocol = 'http';
+    let activeGuiHostname = '';
+
+    function connectToWebGUI(ip, hostname) {
+        activeGuiIp = ip;
+        activeGuiHostname = hostname;
+        activeGuiProtocol = 'http';
+
+        document.getElementById('active-gui-name').textContent = `Web GUI: ${hostname} (${ip})`;
+        document.getElementById('btn-proto-http').classList.add('active');
+        document.getElementById('btn-proto-https').classList.remove('active');
+
+        // Reset window state
+        const overlay = document.getElementById('webgui-overlay');
+        overlay.classList.remove('minimized');
+        overlay.style.padding = '20px';
+        overlay.style.display = 'block';
+        
+        const minBtn = document.getElementById('gui-minimize-btn');
+        minBtn.innerHTML = '<i class="bi bi-dash-lg"></i>';
+        minBtn.title = "Minimize Window";
+        
+        isGuiMinimized = false;
+
+        // Load iframe
+        const iframe = document.getElementById('gui-iframe');
+        iframe.src = `http://${ip}`;
+    }
+
+    function switchGuiProtocol(protocol) {
+        activeGuiProtocol = protocol;
+        if (protocol === 'http') {
+            document.getElementById('btn-proto-http').classList.add('active');
+            document.getElementById('btn-proto-https').classList.remove('active');
+        } else {
+            document.getElementById('btn-proto-http').classList.remove('active');
+            document.getElementById('btn-proto-https').classList.add('active');
+        }
+        document.getElementById('gui-iframe').src = `${protocol}://${activeGuiIp}`;
+    }
+
+    function minimizeGuiWindow() {
+        const overlay = document.getElementById('webgui-overlay');
+        const minBtn = document.getElementById('gui-minimize-btn');
+        if (!isGuiMinimized) {
+            overlay.classList.add('minimized');
+            minBtn.innerHTML = '<i class="bi bi-window-stack"></i>';
+            minBtn.title = "Restore Window";
+            isGuiMinimized = true;
+        } else {
+            overlay.classList.remove('minimized');
+            minBtn.innerHTML = '<i class="bi bi-dash-lg"></i>';
+            minBtn.title = "Minimize Window";
+            isGuiMinimized = false;
+        }
+    }
+
+    function toggleGuiSize() {
+        const overlay = document.getElementById('webgui-overlay');
+        const btn = document.getElementById('gui-resize-btn');
+        if (isGuiMinimized) return; // Can't resize if minimized
+        
+        if (overlay.style.padding === '0px') {
+            overlay.style.padding = '20px';
+            btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i>';
+        } else {
+            overlay.style.padding = '0px';
+            btn.innerHTML = '<i class="bi bi-fullscreen-exit"></i>';
+        }
+    }
+
+    function openGuiNewTab() {
+        window.open(`${activeGuiProtocol}://${activeGuiIp}`, '_blank');
+    }
+
+    function closeGuiWindow() {
+        document.getElementById('gui-iframe').src = 'about:blank';
+        document.getElementById('webgui-overlay').style.display = 'none';
+        document.getElementById('webgui-overlay').classList.remove('minimized');
+        isGuiMinimized = false;
     }
 
     function connectToDevice(id) {
