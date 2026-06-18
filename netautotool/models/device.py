@@ -14,6 +14,10 @@ class DeviceType(str, enum.Enum):
     MIKROTIK_ROUTEROS = "mikrotik_routeros"
     JUNIPER_JUNOS = "juniper_junos"
     FORTINET_FORTIOS = "fortinet_fortios"
+    FORTINET = "fortinet"
+    PALOALTO = "paloalto"
+    HUAWEI = "huawei"
+    OTHER = "other"
 
 class Device(Base):
     """

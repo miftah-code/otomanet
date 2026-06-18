@@ -12,7 +12,11 @@ class NetmikoHandler:
         "mikrotik_routeros": "/export",
         "juniper_junos": "show configuration",
         "fortinet": "show full-configuration",
-        "fortinet_fortios": "show full-configuration"
+        "fortinet_fortios": "show full-configuration",
+        "paloalto": "show config running",
+        "paloalto_panos": "show config running",
+        "huawei": "display current-configuration",
+        "other": "show running-config"
     }
 
     def __init__(self, device_data: Dict):
@@ -33,7 +37,11 @@ class NetmikoHandler:
             "cisco_ios": "cisco_ios",
             "cisco_xe": "cisco_ios",
             "mikrotik_routeros": "mikrotik_routeros",
-            "juniper_junos": "juniper_junos"
+            "juniper_junos": "juniper_junos",
+            "paloalto": "paloalto_panos",
+            "paloalto_panos": "paloalto_panos",
+            "huawei": "huawei",
+            "other": "cisco_ios"
         }
         self.connection_params["device_type"] = mapping.get(
             self.connection_params["device_type"], 

@@ -8,6 +8,12 @@
     <!-- Left Panel: Device List -->
     <div class="col-auto h-100 border-end" style="width: 300px; background-color: var(--bg-card);">
         <div class="p-3 border-bottom">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0 tx1">Devices</h6>
+                <button class="btn btn-sm btn-accent" onclick="showAddDeviceModal()">
+                    <i class="bi bi-plus-lg me-1"></i> Add Device
+                </button>
+            </div>
             <div class="input-group input-group-sm mb-3">
                 <span class="input-group-text bg-transparent border-end-0 tx3"><i class="bi bi-search"></i></span>
                 <input type="text" class="form-control bg-transparent border-start-0" placeholder="Search devices..." id="device-search">
@@ -62,6 +68,9 @@
                         </button>
                         <button class="btn btn-sm btn-outline-primary" onclick="editDevice()">
                             <i class="bi bi-pencil me-1"></i> Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDeviceConfirm()">
+                            <i class="bi bi-trash me-1"></i> Delete
                         </button>
                     </div>
                 </div>
@@ -183,6 +192,62 @@
     </div>
 </div>
 
+<!-- Add Device Modal -->
+<div class="modal fade" id="addDeviceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-app border-secondary">
+            <div class="modal-header border-bottom border-secondary opacity-75">
+                <h5 class="modal-title tx1">Add New Device</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addDeviceForm">
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Hostname</label>
+                        <input type="text" class="form-control bg-deep border-0 text-white" id="add-hostname" required placeholder="e.g. Core-Router">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">IP Address / Domain</label>
+                        <input type="text" class="form-control bg-deep border-0 text-white" id="add-ip" required placeholder="e.g. 192.168.1.1">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Device Type</label>
+                        <select class="form-select bg-deep border-0 text-white" id="add-type" required>
+                            <option value="cisco_ios">Cisco IOS / XE</option>
+                            <option value="mikrotik_routeros">MikroTik RouterOS</option>
+                            <option value="juniper_junos">Juniper JunOS</option>
+                            <option value="fortinet">Fortinet FortiOS</option>
+                            <option value="paloalto">PaloAlto PAN-OS</option>
+                            <option value="huawei">Huawei VRP</option>
+                            <option value="other">Other / Generic</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Username</label>
+                        <input type="text" class="form-control bg-deep border-0 text-white" id="add-username" required placeholder="admin">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Password</label>
+                        <input type="password" class="form-control bg-deep border-0 text-white" id="add-password" required placeholder="SSH password">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Secret (Enable Password)</label>
+                        <input type="password" class="form-control bg-deep border-0 text-white" id="add-secret" placeholder="Leave blank if not needed">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label tx2 small">Port</label>
+                        <input type="number" class="form-control bg-deep border-0 text-white" id="add-port" value="22" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top border-secondary opacity-75">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-accent px-4" onclick="submitAddDevice()">Add Device</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Edit Device Modal -->
 <div class="modal fade" id="editDeviceModal" tabindex="-1">
     <div class="modal-dialog">
@@ -204,9 +269,13 @@
                     <div class="mb-3">
                         <label class="form-label tx2 small">Device Type</label>
                         <select class="form-select bg-deep border-0 text-white" id="edit-type" required>
-                            <option value="cisco_ios">Cisco IOS</option>
+                            <option value="cisco_ios">Cisco IOS / XE</option>
                             <option value="mikrotik_routeros">MikroTik RouterOS</option>
                             <option value="juniper_junos">Juniper JunOS</option>
+                            <option value="fortinet">Fortinet FortiOS</option>
+                            <option value="paloalto">PaloAlto PAN-OS</option>
+                            <option value="huawei">Huawei VRP</option>
+                            <option value="other">Other / Generic</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -281,7 +350,14 @@
             row.className = `p-3 border-bottom d-flex align-items-center cursor-pointer device-row ${currentDeviceId == d.id ? 'bg-accent-bg' : ''}`;
             row.onclick = () => selectDevice(d.id);
             
-            const vendorIcon = d.device_type.includes('cisco') ? 'bi-router' : (d.device_type.includes('mikrotik') ? 'bi-hdd-network' : 'bi-shield-shaded');
+            let vendorIcon = 'bi-router';
+            if (d.device_type.includes('cisco')) vendorIcon = 'bi-router';
+            else if (d.device_type.includes('mikrotik')) vendorIcon = 'bi-hdd-network';
+            else if (d.device_type.includes('fortinet')) vendorIcon = 'bi-shield-shaded';
+            else if (d.device_type.includes('paloalto')) vendorIcon = 'bi-shield-lock';
+            else if (d.device_type.includes('huawei')) vendorIcon = 'bi-cpu-fill';
+            else if (d.device_type.includes('juniper')) vendorIcon = 'bi-server';
+            else vendorIcon = 'bi-cpu';
             
             row.innerHTML = `
                 <div class="bg-deep rounded p-2 me-3 tx2"><i class="bi ${vendorIcon}"></i></div>
@@ -317,7 +393,17 @@
         // Update basic info
         document.getElementById('detail-hostname').textContent = device.hostname;
         document.getElementById('detail-ip').textContent = device.ip_address;
-        document.getElementById('detail-vendor-icon').className = `bi ${device.device_type.includes('cisco') ? 'bi-router' : 'bi-hdd-network'} fs-3`;
+        
+        let vendorIcon = 'bi-router';
+        if (device.device_type.includes('cisco')) vendorIcon = 'bi-router';
+        else if (device.device_type.includes('mikrotik')) vendorIcon = 'bi-hdd-network';
+        else if (device.device_type.includes('fortinet')) vendorIcon = 'bi-shield-shaded';
+        else if (device.device_type.includes('paloalto')) vendorIcon = 'bi-shield-lock';
+        else if (device.device_type.includes('huawei')) vendorIcon = 'bi-cpu-fill';
+        else if (device.device_type.includes('juniper')) vendorIcon = 'bi-server';
+        else vendorIcon = 'bi-cpu';
+        
+        document.getElementById('detail-vendor-icon').className = `bi ${vendorIcon} fs-3`;
         
         // Update fields
         document.getElementById('field-vendor').textContent = device.device_type;
@@ -331,6 +417,53 @@
         
         // Refresh active row styling
         renderDeviceList(devicesData);
+    }
+
+    function showAddDeviceModal() {
+        document.getElementById('addDeviceForm').reset();
+        document.getElementById('add-port').value = 22;
+        const modal = new bootstrap.Modal(document.getElementById('addDeviceModal'));
+        modal.show();
+    }
+
+    async function submitAddDevice() {
+        const payload = {
+            hostname: document.getElementById('add-hostname').value.trim(),
+            ip_address: document.getElementById('add-ip').value.trim(),
+            device_type: document.getElementById('add-type').value,
+            username: document.getElementById('add-username').value.trim(),
+            password: document.getElementById('add-password').value,
+            secret: document.getElementById('add-secret').value || null,
+            port: parseInt(document.getElementById('add-port').value) || 22
+        };
+
+        if (!payload.hostname || !payload.ip_address || !payload.username || !payload.password) {
+            return showToast("Please fill all required fields", "warning");
+        }
+
+        try {
+            const res = await apiCall('POST', '/api/devices/', payload);
+            showToast("Device added successfully", "success");
+            
+            // Hide modal
+            const modalEl = document.getElementById('addDeviceModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            
+            // Manually remove backdrop if it gets stuck
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) backdrop.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            await loadDevices();
+            if (res && res.id) {
+                selectDevice(res.id);
+            }
+        } catch (err) {
+            // Error handled by apiCall toast
+        }
     }
 
     function editDevice() {
@@ -390,18 +523,29 @@
         }
     }
 
+    async function deleteDeviceConfirm() {
+        if (!currentDeviceId) return;
+        if (confirm("Are you sure you want to delete this device?")) {
+            try {
+                await apiCall('DELETE', `/api/devices/${currentDeviceId}`);
+                showToast("Device deleted successfully", "success");
+                currentDeviceId = null;
+                document.getElementById('device-detail-panel').classList.add('d-none');
+                document.getElementById('no-device-selected').classList.remove('d-none');
+                await loadDevices();
+            } catch (err) {}
+        }
+    }
+
     async function testConnection() {
         if (!currentDeviceId) return;
         try {
             showToast("Testing connection...", "info");
-            appendConsole(`Testing connection to ${currentDeviceId}...`, "info");
             const res = await apiCall('POST', `/api/devices/${currentDeviceId}/test-connection`);
             if (res.success) {
                 showToast("Connection Successful", "success");
-                appendConsole(`Connection to device ${currentDeviceId} successful.`, "success");
             } else {
                 showToast(res.error || "Connection Failed", "error");
-                appendConsole(`Connection to device ${currentDeviceId} failed: ${res.error}`, "error");
             }
         } catch (err) {}
     }
@@ -430,7 +574,6 @@
         
         try {
             showToast("Pushing configuration...", "info");
-            appendConsole(`Pushing config to ${currentDeviceId}...`, "info");
             
             const res = await apiCall('POST', '/api/devices/bulk-push-config', {
                 device_ids: [currentDeviceId],
@@ -444,7 +587,6 @@
             if (res[0].success) {
                 outputEl.textContent = res[0].output;
                 showToast("Push Completed", "success");
-                appendConsole(`Push to device ${currentDeviceId} completed successfully.`, "success");
             } else {
                 outputEl.textContent = "Error: " + res[0].error;
                 showToast("Push Failed", "error");
